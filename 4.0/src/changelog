@@ -1,4 +1,11 @@
-typo3-src (4.0.2+debian-4) testing; urgency=high
+typo3-src (4.0.2+debian-5) stable-security; urgency=high
+
+  * Fixed security problem "Multiple vulnerabilities in TYPO3 Core"
+    (TYPO3-20080611-1) with patch taken from 4.0.9.
+
+ -- Christian Welzel <gawain@camlann.de>  Wed, 11 Jun 2008 14:00:00 +0100
+
+typo3-src (4.0.2+debian-4) stable-security; urgency=high
 
   * Fixed security problem "SQL Injection in system extension indexed_search"
     (CVE-2007-6381) with patch taken from 4.0.8. (Closes: 457446)
@@ -7,7 +14,7 @@ typo3-src (4.0.2+debian-4) testing; urgency=high
 
 typo3-src (4.0.2+debian-3) testing; urgency=medium
 
-  * Fixed security problem "TYPO3 Security Bulletin 20070221-1: Email header 
+  * Fixed security problem "TYPO3 Security Bulletin 20070221-1: Email header
     injection" with patch taken from 4.0.5. (Closes: 412019)
 
  -- Christian Welzel <gawain@camlann.de>  Thu, 22 Feb 2007 22:30:00 +0100

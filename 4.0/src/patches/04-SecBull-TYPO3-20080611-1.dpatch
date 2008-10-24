@@ -1,0 +1,217 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 04-SecBull-TYPO3-20080611-1.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: fix for TYPO3 Security Bulletin 20080611-1: Multiple vulnerabilities in TYPO3 Core
+
+@DPATCH@
+
+diff -Naur typo3_src-4.0.8/t3lib/class.t3lib_basicfilefunc.php typo3_src-4.0.9/t3lib/class.t3lib_basicfilefunc.php
+--- typo3_src-4.0.8/t3lib/class.t3lib_basicfilefunc.php	2007-12-10 21:44:25.000000000 +0100
++++ typo3_src-4.0.9/t3lib/class.t3lib_basicfilefunc.php	2008-06-11 10:43:07.000000000 +0200
+@@ -113,7 +113,7 @@
+ 	 *
+ 	 * 	A typical example of the array $f_ext is this:
+ 	 * 		$f_ext['webspace']['allow']='';
+-	 * 		$f_ext['webspace']['deny']='php3,php';
++	 * 		$f_ext['webspace']['deny']= PHP_EXTENSIONS_DEFAULT;
+ 	 * 		$f_ext['ftpspace']['allow']='*';
+ 	 * 		$f_ext['ftpspace']['deny']='';
+ 	 * 	The control of fileextensions goes in two catagories. Webspace and Ftpspace. Webspace is folders accessible from a webbrowser (below TYPO3_DOCUMENT_ROOT) and ftpspace is everything else.
+diff -Naur typo3_src-4.0.8/t3lib/class.t3lib_befunc.php typo3_src-4.0.9/t3lib/class.t3lib_befunc.php
+--- typo3_src-4.0.8/t3lib/class.t3lib_befunc.php	2007-12-10 21:44:25.000000000 +0100
++++ typo3_src-4.0.9/t3lib/class.t3lib_befunc.php	2008-06-11 10:43:07.000000000 +0200
+@@ -3515,6 +3515,16 @@
+ 				$warnings[] = 'The encryption key is not set! Set it in <a href="'.$url.'">$TYPO3_CONF_VARS[SYS][encryptionKey]</a>';
+ 			}
+ 
++				// Check if fileDenyPattern was changed which is dangerous on Apache
++			if ($GLOBALS['TYPO3_CONF_VARS']['BE']['fileDenyPattern'] != FILE_DENY_PATTERN_DEFAULT ) {
++				$warnings[] = 'The value of fileDenyPattern is not set to its default value:<br /><pre>'.htmlspecialchars(FILE_DENY_PATTERN_DEFAULT).'</pre><br />If TYPO3 is running on Apache, a customized value might enable backend or frontend users to execute malicious PHP scripts.';
++			}
++
++				// Check if fileDenyPattern allows to upload .htaccess files which is dangerous on Apache
++			if ($GLOBALS['TYPO3_CONF_VARS']['BE']['fileDenyPattern'] != FILE_DENY_PATTERN_DEFAULT && t3lib_div::verifyFilenameAgainstDenyPattern('.htaccess')) {
++				$warnings[] = 'The current value of fileDenyPattern allows to upload/create files with the name ".htaccess". If TYPO3 is running on Apache, this enables backend or frontend users to create and execute PHP scripts. Please reset the value of fileDenyPattern to its default.';
++			}
++
+ 				// check if there are still updates to perform
+ 			if (!t3lib_div::compat_version(TYPO3_branch))	{
+ 				$url = 'install/index.php?redirect_url=index.php'.urlencode('?TYPO3_INSTALL[type]=update');
+diff -Naur typo3_src-4.0.8/t3lib/class.t3lib_extfilefunc.php typo3_src-4.0.9/t3lib/class.t3lib_extfilefunc.php
+--- typo3_src-4.0.8/t3lib/class.t3lib_extfilefunc.php	2007-12-10 21:44:25.000000000 +0100
++++ typo3_src-4.0.9/t3lib/class.t3lib_extfilefunc.php	2008-06-11 10:43:07.000000000 +0200
+@@ -94,7 +94,7 @@
+  * You are allowed to copy/move folders between spaces (web/ftp) IF the destination has it's f_ext[]['allow'] set to '*'!
+  *
+  * Advice:
+- * You should always exclude php-files from the webspace. This will keep people from uploading, copy/moving and renaming files to the php3/php-extension.
++ * You should always exclude php-files from the webspace. This will keep people from uploading, copy/moving and renaming files to become executable php scripts.
+  * You should never mount a ftp_space 'below' the webspace so that it reaches into the webspace. This is because if somebody unzips a zip-file in the ftp-space so that it reaches out into the webspace this will be a violation of the safety
+  * For example this is a bad idea: you have an ftp-space that is '/www/' and a web-space that is '/www/htdocs/'
+  *
+@@ -227,7 +227,7 @@
+ 					$this->writelog(1,1,108,'No file was uploaded!','');
+ 				}
+ 			}
+-				
++
+ 				// Traverse each set of actions
+ 			foreach($this->fileCmdMap as $action => $actionData)	{
+ 
+@@ -504,7 +504,7 @@
+ 									return $theDestFile;
+ 								} else $this->writelog(2,2,109,'File "%s" WAS NOT copied to "%s"! Write-permission problem?',Array($theFile,$theDestFile));
+ 							} else	$this->writelog(2,1,110,'Target or destination was not within your mountpoints! T="%s", D="%s"',Array($theFile,$theDestFile));
+-						} else $this->writelog(2,1,111,'Fileextension "%s" is not allowed in "%s"!',Array($fI['fileext'],$theDest.'/'));
++						} else $this->writelog(2,1,111,'Extension of file name "%s" is not allowed in "%s"!',Array($fI['file'],$theDest.'/'));
+ 					} else $this->writelog(2,1,112,'File "%s" already exists!',Array($theDestFile));
+ 				} else $this->writelog(2,1,113,'File "%s" exceeds the size-limit of %s bytes',Array($theFile,$this->maxCopyFileSize*1024));
+ 			} else $this->writelog(2,1,114,'You are not allowed to copy files','');
+@@ -594,7 +594,7 @@
+ 									return $theDestFile;
+ 								} else $this->writelog(3,2,109,'File "%s" WAS NOT moved to "%s"! Write-permission problem?',Array($theFile,$theDestFile));
+ 							} else $this->writelog(3,1,110,'Target or destination was not within your mountpoints! T="%s", D="%s"',Array($theFile,$theDestFile));
+-						} else $this->writelog(3,1,111,'Fileextension "%s" is not allowed in "%s"!',Array($fI['fileext'],$theDest.'/'));
++						} else $this->writelog(3,1,111,'Extension of file name "%s" is not allowed in "%s"!',Array($fI['file'],$theDest.'/'));
+ 					} else $this->writelog(3,1,112,'File "%s" already exists!',Array($theDestFile));
+ 				} else $this->writelog(3,1,113,'File "%s" exceeds the size-limit of %s bytes',Array($theFile,$this->maxMoveFileSize*1024));
+ 			} else $this->writelog(3,1,114,'You are not allowed to move files','');
+@@ -669,7 +669,7 @@
+ 												$this->writelog(5,0,1,'File renamed from "%s" to "%s"',Array($fileInfo['file'],$theNewName));
+ 												return $theRenameName;
+ 											} else $this->writelog(5,1,100,'File "%s" was not renamed! Write-permission problem in "%s"?',Array($theTarget,$fileInfo['path']));
+-										} else $this->writelog(5,1,101,'Fileextension "%s" was not allowed!',Array($fI['fileext']));
++										} else $this->writelog(5,1,101,'Extension of file name "%s" was not allowed!',Array($fI['file']));
+ 									} else $this->writelog(5,1,102,'You are not allowed to rename files!','');
+ 								} elseif ($type=='dir')	{
+ 									if ($this->actionPerms['renameFolder'])	{
+@@ -745,7 +745,7 @@
+ 											return $theNewFile;
+ 										} else $this->writelog(8,1,100,'File "%s" was not created! Write-permission problem in "%s"?',Array($fI['file'], $theTarget));
+ 									} else $this->writelog(8,1,107,'Fileextension "%s" is not a textfile format! (%s)',Array($fI['fileext'], $extList));
+-								} else $this->writelog(8,1,106,'Fileextension "%s" was not allowed!',Array($fI['fileext']));
++								} else $this->writelog(8,1,106,'Extension of file name "%s" was not allowed!',Array($fI['file']));
+ 							} else $this->writelog(8,1,101,'File "%s" existed already!',Array($theNewFile));
+ 						} else $this->writelog(8,1,102,'Destination path "%s" was not within your mountpoints!',Array($theTarget.'/'));
+ 					} else $this->writelog(8,1,103,'You are not allowed to create files!','');
+@@ -780,7 +780,7 @@
+ 								return TRUE;
+ 							} else $this->writelog(9,1,100,'File "%s" was not saved! Write-permission problem in "%s"?',Array($theTarget,$fileInfo['path']));
+ 						} else $this->writelog(9,1,102,'Fileextension "%s" is not a textfile format! (%s)',Array($fI['fileext'], $extList));
+-					} else $this->writelog(9,1,103,'Fileextension "%s" was not allowed!',Array($fI['fileext']));
++					} else $this->writelog(9,1,103,'Extension of file name "%s" was not allowed!',Array($fI['file']));
+ 				} else $this->writelog(9,1,104,'You are not allowed to edit files!','');
+ 			} else $this->writelog(9,1,121,'Destination path "%s" was not within your mountpoints!',Array($fileInfo['path']));
+ 		} else $this->writelog(9,2,123,'Target "%s" was not a file!',Array($theTarget));
+@@ -816,7 +816,7 @@
+ 										return $theNewFile;
+ 									} else $this->writelog(1,1,100,'Uploaded file could not be moved! Write-permission problem in "%s"?',Array($theTarget.'/'));
+ 								} else $this->writelog(1,1,101,'No unique filename available in "%s"!',Array($theTarget.'/'));
+-							} else $this->writelog(1,1,102,'Fileextension "%s" is not allowed in "%s"!',Array($fI['fileext'],$theTarget.'/'));
++							} else $this->writelog(1,1,102,'Extension of file name "%s" is not allowed in "%s"!',Array($fI['file'], $theTarget.'/'));
+ 						} else $this->writelog(1,1,103,'Destination path "%s" was not within your mountpoints!',Array($theTarget.'/'));
+ 					} else $this->writelog(1,1,104,'The uploaded file exceeds the size-limit of %s bytes',Array($this->maxUploadFileSize*1024));
+ 				} else $this->writelog(1,1,105,'You are not allowed to upload files!','');
+diff -Naur typo3_src-4.0.8/t3lib/config_default.php typo3_src-4.0.9/t3lib/config_default.php
+--- typo3_src-4.0.8/t3lib/config_default.php	2007-12-10 21:44:25.000000000 +0100
++++ typo3_src-4.0.9/t3lib/config_default.php	2008-06-11 10:43:07.000000000 +0200
+@@ -16,6 +16,12 @@
+ 
+ if (!defined ('PATH_typo3conf')) 	die ('The configuration path was not properly defined!');
+ 
++//Security related constant: Default value of fileDenyPattern
++define('FILE_DENY_PATTERN_DEFAULT', '\.php[3-6]?(\..*)?$|^\.htaccess$');
++
++//Security related constant: Comma separated list of file extensions that should be registered as php script file extensions
++define('PHP_EXTENSIONS_DEFAULT', 'php,php3,php4,php5,php6');
++
+ $TYPO3_CONF_VARS = Array(
+ 	'GFX' => array(		// Configuration of the image processing features in TYPO3. 'IM' and 'GD' are short for ImageMagick and  GD library respectively.
+ 		'image_processing' => 1,				// Boolean. Enables image processing features. Disabling this means NO image processing with either GD or IM!
+@@ -70,7 +76,7 @@
+ 		'curlProxyTunnel' => 0,					// Boolean: If set, use a tunneled connection through the proxy (usefull for websense etc.).
+ 		'curlProxyUserPass' => '',				// String: Proxyserver authentication user:pass.
+ 		'form_enctype' => 'multipart/form-data',	// String: This is the default form encoding type for most forms in TYPO3. It allows for file uploads to be in the form. However if file-upload is disabled for your PHP version even ordinary data sent with this encryption will not get to the server. So if you have file_upload disabled, you will have to change this to eg. 'application/x-www-form-urlencoded'
+-		'textfile_ext' => 'txt,html,htm,css,inc,php,php3,tmpl,js,sql',	// Text file extensions. Those that can be edited. php,php3 cannot be edited in webspace if they are disallowed! Notice:
++		'textfile_ext' => 'txt,html,htm,css,inc,tmpl,js,sql,' . PHP_EXTENSIONS_DEFAULT,	// Text file extensions. Those that can be edited. Executable PHP files may not be editable in webspace if disallowed!
+ 		'contentTable' => '',					// This is the page-content table (Normally 'tt_content')
+ 		'T3instID' => 'N/A',					// A unique installation ID - not used yet. The idea is that a TYPO3 installation can identify itself by this ID string to the Extension Repository on TYPO3.org so that we can keep a realistic count of serious TYPO3 installations.
+ 		'binPath' => '', 						// String: List of absolute paths where external programs should be searched for. Eg. '/usr/local/webbin/,/home/xyz/bin/'. (ImageMagick path have to be configured separately)
+@@ -149,13 +155,13 @@
+ 			// The control is done like this: If an extension matches 'allow' then the check returns true. If not and an extension matches 'deny' then the check return false. If no match at all, returns true.
+ 			// You list extensions comma-separated. If the value is a '*' every extension is matched
+ 			// If no fileextension, true is returned if 'allow' is '*', false if 'deny' is '*' and true if none of these matches
+-			// This configuration below accepts everything in ftpspace and everything in webspace except php3 or php files
++			// This configuration below accepts everything in ftpspace and everything in webspace except files with an extension from PHP_EXTENSIONS_DEFAULT
+ 		'fileExtensions' => array (
+-			'webspace' => array('allow'=>'', 'deny'=>'php,php3,php4,php5'),
++			'webspace' => array('allow'=>'', 'deny'=> PHP_EXTENSIONS_DEFAULT ),
+ 			'ftpspace' => array('allow'=>'*', 'deny'=>'')
+ 		),
+ 		'customPermOptions' => array(),			// Array with sets of custom permission options. Syntax is; 'key' => array('header' => 'header string, language splitted', 'items' => array('key' => array('label, language splitted', 'icon reference', 'Description text, language splitted'))). Keys cannot contain ":|," characters.
+-		'fileDenyPattern' => '\.php$|\.php.$',	// A regular expression that - if it matches a filename - will deny the file upload/rename or whatever in the webspace. Matching with eregi() (case-insensitive).
++		'fileDenyPattern' => FILE_DENY_PATTERN_DEFAULT ,	// A regular expression that - if it matches a filename - will deny the file upload/rename or whatever in the webspace. For security reasons, files with multiple extensions have to be denied on an Apache environment with mod_alias, if the filename contains a valid php handler in an arbitary position. Also, ".htaccess" files have to be denied. Matching with eregi() (case-insensitive). Default value is stored in constant FILE_DENY_PATTERN_DEFAULT
+ 		'interfaces' => 'backend',					// This determines which interface options is available in the login prompt and in which order (All options: ",backend,frontend")
+ 		'useOnContextMenuHandler' => 1,			// Boolean. If set, the context menus (clickmenus) in the backend are activated on right-click - although this is not a XHTML attribute!
+ 		'loginLabels' => 'Username|Password|Interface|Log In|Log Out|Backend,Front End|Administration Login on ###SITENAME###|(Note: Cookies and JavaScript must be enabled!)|Important Messages:|Your login attempt did not succeed. Make sure to spell your username and password correctly, including upper/lowercase characters.',		// Language labels of the login prompt.
+diff -Naur typo3_src-4.0.8/t3lib/stddb/tables.php typo3_src-4.0.9/t3lib/stddb/tables.php
+--- typo3_src-4.0.8/t3lib/stddb/tables.php	2007-12-10 21:44:25.000000000 +0100
++++ typo3_src-4.0.9/t3lib/stddb/tables.php	2008-06-11 10:43:07.000000000 +0200
+@@ -459,6 +459,9 @@
+ 	'tgz' => 'zip.gif',
+ 	'gz' => 'zip.gif',
+ 	'php3' => 'php3.gif',
++	'php4' => 'php3.gif',
++	'php5' => 'php3.gif',
++	'php6' => 'php3.gif',
+ 	'php' => 'php3.gif',
+ 	'ttf' => 'ttf.gif',
+ 	'pcx' => 'pcx.gif',
+diff -Naur typo3_src-4.0.8/typo3/sysext/cms/tbl_tt_content.php typo3_src-4.0.9/typo3/sysext/cms/tbl_tt_content.php
+--- typo3_src-4.0.8/typo3/sysext/cms/tbl_tt_content.php	2007-12-10 21:44:36.000000000 +0100
++++ typo3_src-4.0.9/typo3/sysext/cms/tbl_tt_content.php	2008-06-11 10:43:19.000000000 +0200
+@@ -789,7 +789,7 @@
+ 				'type' => 'group',
+ 				'internal_type' => 'file',
+ 				'allowed' => '',	// Must be empty for disallowed to work.
+-				'disallowed' => 'php,php3',
++				'disallowed' => PHP_EXTENSIONS_DEFAULT,
+ 				'max_size' => '10000',
+ 				'uploadfolder' => 'uploads/media',
+ 				'show_thumbs' => '1',
+diff -Naur typo3_src-4.0.8/typo3/sysext/cms/tslib/media/scripts/fe_adminLib.inc typo3_src-4.0.9/typo3/sysext/cms/tslib/media/scripts/fe_adminLib.inc
+--- typo3_src-4.0.8/typo3/sysext/cms/tslib/media/scripts/fe_adminLib.inc	2007-12-10 21:44:35.000000000 +0100
++++ typo3_src-4.0.9/typo3/sysext/cms/tslib/media/scripts/fe_adminLib.inc	2008-06-11 10:43:19.000000000 +0200
+@@ -1299,7 +1299,7 @@
+ 			$inputArr
+ 		);
+ 
+-		return $inputArr;
++		return $this->escapeHTML($inputArr);
+ 	}
+ 
+ 	/**
+@@ -1754,6 +1754,23 @@
+ 	function getFailure($theField, $theCmd, $label)	{
+ 		return isset($this->conf['evalErrors.'][$theField.'.'][$theCmd]) ? $this->conf['evalErrors.'][$theField.'.'][$theCmd] : $label;
+ 	}
++
++	/**
++	 * Will escape HTML-tags.
++	 *
++	 * @param	mixed		The unescaped data
++	 * @return	mixed		The processed input data
++	 */
++	function escapeHTML($var)	{
++		if (is_array($var)) {
++			foreach ($var as $k => $value) {
++				$var[$k] = $this->escapeHTML($var[$k]);
++			}
++		} else {
++			$var = htmlspecialchars($var, ENT_NOQUOTES);
++		}
++		return $var;
++	}
+ }
+ 
+ 

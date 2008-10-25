@@ -1,3 +1,18 @@
+typo3-dummy (4.2.2-2) unstable; urgency=low
+
+  * Added upload_tmp_dir to apache.conf and set it to /var/tmp/typo3-dummy
+  * Added creation and access settings for /var/tmp/typo3-dummy to debian/rules.
+  * Adopted open_basedir setting (Closes: 502771).
+
+ -- Christian Welzel <gawain@camlann.de>  Fri, 24 Oct 2008 18:00:00 +0200
+
+typo3-dummy (4.2.2-1) unstable; urgency=low
+
+  * New upstream release.
+  * Added /tmp to PHPs open_basedir to allow file-uploads in the backend.
+
+ -- Christian Welzel <gawain@camlann.de>  Thu, 09 Oct 2008 15:00:00 +0200
+
 typo3-dummy (4.2.1-1) unstable; urgency=low
 
   * New upstream release.

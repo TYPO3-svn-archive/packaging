@@ -14,7 +14,7 @@ INSTALLDIR=debian/$(PACKAGENAME)
 DBSRCDIR=usr/share/$(PACKAGENAME)
 DOCROOTDIR=var/lib/$(PACKAGENAME)
 ETCDIR=etc/$(PACKAGENAME)
-TMPDIR=var/tmp/$(PACKAGENAME)
+TMPDIR=var/run/$(PACKAGENAME)
 
 build: build-stamp
 
@@ -45,6 +45,7 @@ install: build
 binary-indep: build install
 	dh_testdir
 	dh_testroot
+	dh_lintian
 	dh_installdebconf
 	dh_installchangelogs
 	dh_installdocs RELEASE_NOTES.txt README.txt --exclude INSTALL.txt
@@ -62,7 +63,7 @@ binary-indep: build install
 	dh_compress
 	dh_fixperms
 	chown -hR www-data:www-data $(INSTALLDIR)/$(TMPDIR)
-	chmod 0700 $(INSTALLDIR)/$(TMPDIR)
+	chmod 0750 $(INSTALLDIR)/$(TMPDIR)
 	dh_installdeb
 	dh_shlibdeps
 	dh_gencontrol

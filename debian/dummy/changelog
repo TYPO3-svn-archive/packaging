@@ -1,3 +1,13 @@
+typo3-dummy (4.2.3-1) unstable; urgency=low
+
+  * New upstream release.
+  * Changed temporary directory for uploads to /var/run/typo3-dummy
+    because of lintian error.
+  * Added lintian override for non-standard-dir-perm (above dir is 0750).
+  * Raised build-depend of debhelper to >=6.0.7 because of dh_lintian.
+
+ -- Christian Welzel <gawain@camlann.de>  Fri, 14 Nov 2008 22:00:00 +0200
+
 typo3-dummy (4.2.2-2) unstable; urgency=low
 
   * Added upload_tmp_dir to apache.conf and set it to /var/tmp/typo3-dummy

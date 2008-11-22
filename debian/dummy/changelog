@@ -1,3 +1,15 @@
+typo3-dummy (4.3.0~alpha1-1) experimental; urgency=low
+
+  * New upstream release.
+  * New dependencies (copied from typo3-src).
+  * Removed php4 section from apache.conf.
+  * Moved setting of access rights from postinst to rules.
+  * Added lintian override "non-standard-file-perm" for localconf.php
+  * Removed build-stamp from debian/rules.
+  * Rewritten long description.
+
+ -- Christian Welzel <gawain@camlann.de>  Thu, 20 Nov 2008 23:00:00 +0100
+
 typo3-dummy (4.2.3-1) unstable; urgency=low
 
   * New upstream release.

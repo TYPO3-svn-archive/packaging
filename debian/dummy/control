@@ -7,25 +7,30 @@ Standards-Version: 3.8.0
 
 Package: typo3-dummy
 Architecture: all
-Depends: typo3-src-4.2
-Description: Empty TYPO3 site package for starting a new site from scratch
- This package provides an empty directory structure to start a new and clean
+Depends: exim4 | mail-transport-agent, graphicsmagick, libapache2-mod-php5 | php5-cgi, php5-cli, php5-gd, php5-mysql, php5-xcache, typo3-src-4.3
+Recommends: catdoc, ghostscript, php5-curl, ppthtml, typo3-database, unrtf, xlhtml, xpdf-utils
+Description: TYPO3 - the enterprise level open source WebCMS (Site structure)
+ TYPO3 is a free Open Source content management system for enterprise purposes
+ on the web and in intranets. It offers full flexibility and extendability while
+ featuring an accomplished set of ready-made interfaces, functions and modules.
+ .
+ The most important key features of TYPO3 are:
+ * Simple creation of multi language websites with fallback to a default language
+ * Handling of multi domain websites within a single page tree
+ * Multi user backend editing with complete GUI customisation using an advanced
+   ACL system
+ * An integrated workflow management system based on an multi step architecture
+   with editor and supervisor privileges
+ * Unlimited redefinition of the rendering process using the build-in TypoScript
+   configuration interface or the plugin API
+ * Thousands of plugins are available in the online TYPO3 extension repository
+ .
+ This package provides the basic directory structure to start a new and clean
  website based on TYPO3. This includes a default configuration and some scripts
  to register the site in apache.
  .
  NOTE: This package is intended for single vhost installations. TYPO3 can be
  configured to work with several vhosts and a single src-dir but this package
  can not handle this for you!
- .
- TYPO3 is a Web content management system which features automatic creation of
- navigational menus, headlines, and other dynamic graphical elements, automatic
- conversion and scaling of images, the ability to present different templates
- based on variables such as client browser or country code, support for multiple
- templates on a site, and a built-in password-protection option.
- .
- Pages can be timed to be shown on a certain date, be hidden on a certain date
- or just temporarily hidden. TYPO3 supports search in SQL-databases and
- redesigning of a website at once is just a matter of creating a single new
- template.
  .
   Homepage: <http://www.typo3.com/>

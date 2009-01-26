@@ -1,0 +1,48 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 05-SecBull-TYPO3-SA-2009-001-10146.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: fix for TYPO3 Security Bulletin TYPO3-SA-2009-001: Multiple vulnerabilities in TYPO3 Core
+
+@DPATCH@
+
+diff -Naur typo3_src-4.0.9/t3lib/class.t3lib_userauth.php typo3_src-4.0.10/t3lib/class.t3lib_userauth.php
+--- typo3_src-4.0.9/t3lib/class.t3lib_userauth.php 2007-12-10 21:44:25.000000000 +0100
++++ typo3_src-4.0.10/t3lib/class.t3lib_userauth.php 2008-06-11 10:43:07.000000000 +0200
+@@ -225,8 +225,8 @@
+ 		}
+ 		$this->cookieId = $id;
+ 
+-			// If new session...
+-		if (!$id)	{
++			// If new session or client tries to fix session...
++		if (!$id || !$this->isExistingSessionRecord($id))	{
+ 				// New random session-$id is made
+     		$id = substr(md5(uniqid('').getmypid()),0,$this->hash_length);
+     			// New session
+@@ -736,6 +736,26 @@
+ 		}
+ 	}
+ 
++	/**
++	 * Determine whether there's an according session record to a given session_id
++	 * in the database. Don't care if session record is still valid or not.
++	 *
++	 * @return boolean
++	 */
++	function isExistingSessionRecord($id) {
++		$count = false;
++		$dbres = $GLOBALS['TYPO3_DB']->exec_SELECTquery(
++						'COUNT(ses_id)',
++						$this->session_table,
++						'ses_id=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($id, $this->session_table)
++					);
++		if ($dbres !== false) {
++			list($count) = $GLOBALS['TYPO3_DB']->sql_fetch_row($dbres);
++			$GLOBALS['TYPO3_DB']->sql_free_result($dbres);
++		}
++		return (($count ? true : false));
++	}
++
+ 
+ 
+ 

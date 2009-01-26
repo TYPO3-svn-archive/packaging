@@ -1,7 +1,27 @@
+typo3-src (4.0.2+debian-7) stable-security; urgency=high
+
+  * Added patch (backported from 4.0.11) to fix serious bug in session
+    handling introduced by upstream patch for security fix 
+    TYPO3-SA-2009-001-10146.
+
+ -- Christian Welzel <gawain@camlann.de>  Sun, 25 Jan 2009 11:00:00 +0100
+
+typo3-src (4.0.2+debian-6) stable-security; urgency=high
+
+  * Fixed security problem "Multiple vulnerabilities in TYPO3 Core"
+    (TYPO3-SA-2009-001) with patches taken from Typo3-Bugtracker.
+    (Closes: 512608)
+  * Modified patches from bugtracker to remove php5 dependency
+    (see http://wiki.typo3.org/TYPO3_4.1.8)
+
+ -- Christian Welzel <gawain@camlann.de>  Thu, 22 Jan 2009 11:00:00 +0100
+
 typo3-src (4.0.2+debian-5) stable-security; urgency=high
 
   * Fixed security problem "Multiple vulnerabilities in TYPO3 Core"
-    (TYPO3-20080611-1) with patch taken from 4.0.9.
+    (TYPO3-20080611-1) with patch taken from 4.0.9. (Closes: 485814)
+  * Fixed Bug in backend-code which renders the backend unusable in Firefox3
+    (patch taken from 4.0.9). (Closes: 485815)
 
  -- Christian Welzel <gawain@camlann.de>  Wed, 11 Jun 2008 14:00:00 +0100
 

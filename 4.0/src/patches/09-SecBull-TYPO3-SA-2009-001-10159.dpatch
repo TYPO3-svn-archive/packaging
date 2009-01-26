@@ -1,0 +1,19 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 09-SecBull-TYPO3-SA-2009-001-10159.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: fix for TYPO3 Security Bulletin TYPO3-SA-2009-001: Multiple vulnerabilities in TYPO3 Core
+
+@DPATCH@
+
+diff -Naur typo3_src-4.0.9/typo3/mod/user/ws/wsol_preview.php typo3_src-4.0.10/typo3/mod/user/ws/wsol_preview.php
+--- typo3_src-4.0.9/typo3/mod/user/ws/wsol_preview.php	2008-06-11 10:43:12.000000000 +0200
++++ typo3_src-4.0.10/typo3/mod/user/ws/wsol_preview.php	2009-01-20 16:37:39.000000000 +0100
+@@ -103,7 +103,7 @@
+ 					The previewed page is created in the workspace and has no counterpart in the live workspace.';
+ 				break;
+ 				default:
+-					$message = 'Unknown message code "'.$msg.'"';
++					$message = 'Unknown message code "' . htmlspecialchars($msg) . '"';
+ 				break;
+ 			}
+ 

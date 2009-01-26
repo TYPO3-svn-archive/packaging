@@ -1,3 +1,10 @@
+typo3-dummy (4.2.5-1) unstable; urgency=high
+
+  * New upstream release.
+    - no changes, only version raise to match typo3-src package
+
+ -- Christian Welzel <gawain@camlann.de>  Mon, 26 Jan 2009 20:00:00 +0100
+
 typo3-dummy (4.2.4-1) unstable; urgency=high
 
   * New upstream release.

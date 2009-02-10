@@ -1,0 +1,79 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 10-SecBull-TYPO3-SA-2009-001-10146-2.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: Fixes the XSS issue from TYPO3-SA-2009-002
+
+@DPATCH@
+
+diff -Naur typo3_src-4.0.11/t3lib/class.t3lib_bedisplaylog.php typo3_src-4.0.12/t3lib/class.t3lib_bedisplaylog.php
+--- typo3_src-4.0.11/t3lib/class.t3lib_bedisplaylog.php	2009-01-24 17:06:52.000000000 +0100
++++ typo3_src-4.0.12/t3lib/class.t3lib_bedisplaylog.php	2009-02-10 10:02:32.000000000 +0100
+@@ -141,7 +141,7 @@
+ 			$this->lastUserLabel=$code.'_'.$workspace;
+ 			$label = $this->be_user_Array[$code]['username'];
+ 			$ws = $this->wsArray[$workspace];
+-			return ($label ? $label : '['.$code.']').'@'.($ws?$ws:$workspace);
++			return ($label ? htmlspecialchars($label) : '['.$code.']').'@'.($ws?$ws:$workspace);
+ 		} else return '.';
+ 	}
+ 7
+@@ -169,7 +169,7 @@
+ 		if ($this->lastActionLabel!=$code)	{
+ 			$this->lastActionLabel=$code;
+ 			$label=$GLOBALS['LANG']->getLL('action_'.$code);
+-			return $label ? $label : '['.$code.']';
++			return $label ? htmlspecialchars($label) : '['.$code.']';
+ 		} else return '.';
+ 	}
+ 
+diff -Naur typo3_src-4.0.11/typo3/alt_intro.php typo3_src-4.0.12/typo3/alt_intro.php
+--- typo3_src-4.0.11/typo3/alt_intro.php	2009-01-24 17:07:23.000000000 +0100
++++ typo3_src-4.0.12/typo3/alt_intro.php	2009-02-10 10:02:59.000000000 +0100
+@@ -129,8 +129,8 @@
+ 		$this->content.='<p class="c-user">'.
+ 				htmlspecialchars($LANG->getLL('userInfo')).
+ 				sprintf(' <strong>%s</strong> (%s)',
+-						$BE_USER->user['username'],
+-						(implode(', ',array($BE_USER->user['realName'],$BE_USER->user['email'])))
++						htmlspecialchars($BE_USER->user['username']),
++						htmlspecialchars(implode(', ',array($BE_USER->user['realName'],$BE_USER->user['email'])))
+ 						).
+ 				'</p>
+ 				<br />
+diff -Naur typo3_src-4.0.11/typo3/alt_main.php typo3_src-4.0.12/typo3/alt_main.php
+--- typo3_src-4.0.11/typo3/alt_main.php	2009-01-24 17:07:23.000000000 +0100
++++ typo3_src-4.0.12/typo3/alt_main.php	2009-02-10 10:02:59.000000000 +0100
+@@ -159,7 +159,7 @@
+ 	function typoSetup()	{	//
+ 		this.PATH_typo3 = "'.$pt3.'";
+ 		this.PATH_typo3_enc = "'.rawurlencode($pt3).'";
+-		this.username = "'.$BE_USER->user['username'].'";
++		this.username = "'.htmlspecialchars($BE_USER->user['username']).'";
+ 		this.uniqueID = "'.t3lib_div::shortMD5(uniqid('')).'";
+ 		this.navFrameWidth = 0;
+ 	}
+diff -Naur typo3_src-4.0.11/typo3/sysext/beuser/mod/index.php typo3_src-4.0.12/typo3/sysext/beuser/mod/index.php
+--- typo3_src-4.0.11/typo3/sysext/beuser/mod/index.php	2009-01-24 17:07:03.000000000 +0100
++++ typo3_src-4.0.12/typo3/sysext/beuser/mod/index.php	2009-02-10 10:02:39.000000000 +0100
+@@ -1265,8 +1265,10 @@
+ 				}
+ 			}
+ 
+-			$outTable = '<table border="0" cellpadding="1" cellspacing="1"><tr class="bgColor5"><td>'.t3lib_iconWorks::getIconImage('be_users',$tempBE_USER->user,$GLOBALS['BACK_PATH'],'class="absmiddle" title="'.$tempBE_USER->user['uid'].'"').$tempBE_USER->user['username'].'</td>';
+-			$outTable.= '<td>'.$tempBE_USER->user['realName'].($tempBE_USER->user['email'] ? ', <a href="mailto:'.$tempBE_USER->user['email'].'">'.$tempBE_USER->user['email'].'</a>' : '').'</td>';
++			$email = htmlspecialchars($tempBE_USER->user['email']);
++			$realname = htmlspecialchars($tempBE_USER->user['realName']);
++			$outTable = '<table border="0" cellpadding="1" cellspacing="1"><tr class="bgColor5"><td>'.t3lib_iconWorks::getIconImage('be_users',$tempBE_USER->user,$GLOBALS['BACK_PATH'],'class="absmiddle" title="'.$tempBE_USER->user['uid'].'"').htmlspecialchars($tempBE_USER->user['username']).'</td>';
++			$outTable.= '<td>'.($realname?$realname.', ':'').($email ? '<a href="mailto:'.$email.'">'.$email.'</a>' : '').'</td>';
+ 			$outTable.= '<td>'.$this->elementLinks('be_users',$tempBE_USER->user).'</td></tr></table>';
+ 			$outTable.= '<strong><a href="index.php">&lt; Back to overview</a></strong><br />';
+ 
+@@ -1400,7 +1402,7 @@
+ 	 * @return	[type]		...
+ 	 */
+ 	function linkUser($str,$rec)	{
+-		return '<a href="index.php?be_user_uid='.$rec['uid'].'">'.$str.'</a>';
++		return '<a href="index.php?be_user_uid='.$rec['uid'].'">'.htmlspecialchars($str).'</a>';
+ 	}
+ 
+ 	/**

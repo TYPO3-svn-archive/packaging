@@ -1,3 +1,11 @@
+typo3-src (4.0.2+debian-8) stable-security; urgency=high
+
+  * Added patches (backported from 4.0.12) to fix a critical information
+    disclosure vulnerability in TYPO3 core and a XSS issue in TYPO3
+    backend module (Closes: 514713).
+
+ -- Christian Welzel <gawain@camlann.de>  Tue, 10 Feb 2009 12:00:00 +0100
+
 typo3-src (4.0.2+debian-7) stable-security; urgency=high
 
   * Added patch (backported from 4.0.11) to fix serious bug in session

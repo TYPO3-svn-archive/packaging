@@ -1,0 +1,59 @@
+Source: typo3-src
+Section: web
+Priority: optional
+Maintainer: Christian Welzel <gawain@camlann.de>
+Build-Depends: debhelper (>= 4), dpatch
+Standards-Version: 3.8.0
+
+Package: typo3
+Architecture: all
+Depends: exim4 | mail-transport-agent, graphicsmagick, php5-gd, typo3-dummy, typo3-src-4.2 | typo3-src-4.1
+Recommends: mysql-server, ghostscript
+Suggests: catdoc, httrack, ppthtml, unrtf, webhttrack, xpdf-utils, xlhtml
+Description: Powerful content management framework (Meta package)
+ TYPO3 is a free Open Source content management system for enterprise purposes
+ on the web and in intranets. It offers full flexibility and extendability while
+ featuring an accomplished set of ready-made interfaces, functions and modules.
+ .
+ The most important key features of TYPO3 are:
+  * Simple creation of multi language websites with fallback to a default
+    language
+  * Handling of multi domain websites within a single page tree
+  * Multi user backend editing with complete GUI customisation using an
+    advanced ACL system
+  * An integrated workflow management system based on an multi step architecture
+    with editor and supervisor privileges
+  * Unlimited redefinition of the rendering process using the build-in
+    TypoScript configuration interface or the plugin API
+  * Thousands of plugins are available in the online TYPO3 extension repository
+ .
+ This package provides the core engine of TYPO3, often called The Source.
+ .
+  Homepage: <http://www.typo3.com/>
+
+Package: typo3-src-4.2
+Architecture: all
+Depends: ttf-dejavu, libapache2-mod-php5 | libapache-mod-php5 | php5-cgi, php5-cli, libjs-prototype (>1.6.0), libjs-scriptaculous (>1.8.1)
+Recommends: catdoc, exim4 | mail-transport-agent, graphicsmagick, ghostscript, mysql-server, php5-gd, php5-mysql, php5-xcache, typo3-dummy, xpdf-utils
+Suggests: logcheck, php5-curl, ppthtml, xlhtml, unrtf
+Provides: typo3-src
+Description: Powerful content management framework (Core)
+ TYPO3 is a free Open Source content management system for enterprise purposes
+ on the web and in intranets. It offers full flexibility and extendability while
+ featuring an accomplished set of ready-made interfaces, functions and modules.
+ .
+ The most important key features of TYPO3 are:
+  * Simple creation of multi language websites with fallback to a default
+    language
+  * Handling of multi domain websites within a single page tree
+  * Multi user backend editing with complete GUI customisation using an
+    advanced ACL system
+  * An integrated workflow management system based on an multi step architecture
+    with editor and supervisor privileges
+  * Unlimited redefinition of the rendering process using the build-in
+    TypoScript configuration interface or the plugin API
+  * Thousands of plugins are available in the online TYPO3 extension repository
+ .
+ This package provides the core engine of TYPO3, often called The Source.
+ .
+  Homepage: <http://www.typo3.com/>

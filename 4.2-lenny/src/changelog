@@ -1,3 +1,11 @@
+typo3-src (4.2.5-1+lenny1) testing-security; urgency=high
+
+  * Added patches (backported from 4.2.6) to fix a critical information
+    disclosure vulnerability in TYPO3 core and a XSS issue in TYPO3
+    backend module (Closes: 514713).
+
+ -- Christian Welzel <gawain@camlann.de>  Mon, 10 Feb 2009 15:00:00 +0100
+
 typo3-src (4.2.5-1) unstable; urgency=medium
 
   * New upstream release.

@@ -1,0 +1,19 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 02-SecBull-TYPO3-SA-2009-002-1.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: Fixes the Information Disclosure issue from TYPO3-SA-2009-002.
+
+@DPATCH@
+
+diff -Naur typo3-src-4.2.5/typo3/sysext/cms/tslib/class.tslib_fe.php typo3_src-4.2.6/typo3/sysext/cms/tslib/class.tslib_fe.php
+--- typo3-src-4.2.5/typo3/sysext/cms/tslib/class.tslib_fe.php	2009-01-24 17:30:37.000000000 +0100
++++ typo3_src-4.2.6/typo3/sysext/cms/tslib/class.tslib_fe.php	2009-02-10 10:36:51.000000000 +0100
+@@ -2540,7 +2540,7 @@
+ 							exit;
+ 						} else die('jumpurl Secure: "'.$this->jumpurl.'" was not a valid file!');
+ 					} else die('jumpurl Secure: locationData, '.$locationData.', was not accessible.');
+-				} else die('jumpurl Secure: Calculated juHash, '.$calcJuHash.', did not match the submitted juHash.');
++				} else die('jumpurl Secure: Calculated juHash did not match the submitted juHash.');
+ 			} else {
+ 				$TSConf = $this->getPagesTSconfig();
+ 				if ($TSConf['TSFE.']['jumpUrl_transferSession'])	{

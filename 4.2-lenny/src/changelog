@@ -1,3 +1,21 @@
+typo3-src (4.2.5-1+lenny2) stable-security; urgency=high
+
+  * Added patches (backported from 4.2.10) to fix the security issues
+    from "TYPO3 Security Bulletin TYPO3-SA-2009-016: Multiple
+    vulnerabilities in TYPO3 Core" with the following CVEs assigned:
+     CVE-2009-3628 TYPO3 Information disclosure
+     CVE-2009-3629 TYPO3 Cross-site scripting
+     CVE-2009-3630 TYPO3 Frame hijacking
+     CVE-2009-3631 TYPO3 Remote shell command execution
+     CVE-2009-3632 TYPO3 SQL injection
+     CVE-2009-3633 TYPO3 API function t3lib_div::quoteJSvalue XSS
+     CVE-2009-3634 TYPO3 Frontend Login Box (felogin) XSS
+     CVE-2009-3635 TYPO3 Insecure Authentication and Session Handling
+     CVE-2009-3636 TYPO3 Install Tool XSS
+    (Closes: 552020).
+
+ -- Christian Welzel <gawain@camlann.de>  Thu, 22 Oct 2009 22:00:00 +0100
+
 typo3-src (4.2.5-1+lenny1) testing-security; urgency=high
 
   * Added patches (backported from 4.2.6) to fix a critical information

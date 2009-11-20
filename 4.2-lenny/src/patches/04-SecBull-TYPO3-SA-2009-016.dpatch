@@ -1,0 +1,1045 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 04-SecBull-TYPO3-SA-2009-016.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: Fixes TYPO3-SA-2009-016
+
+@DPATCH@
+
+diff -Naur typo3-src-4.2.9/t3lib/class.t3lib_div.php typo3-src-4.2.10/t3lib/class.t3lib_div.php
+--- typo3-src-4.2.9/t3lib/class.t3lib_div.php	2009-09-28 19:58:33.000000000 +0200
++++ typo3-src-4.2.10/t3lib/class.t3lib_div.php	2009-10-22 14:14:56.000000000 +0200
+@@ -3864,6 +3866,24 @@
+ 	}
+ 
+ 	/**
++	 * Checks if a given string is a valid frame URL to be loaded in the
++	 * backend.
++	 *
++	 * @param string $url potential URL to check
++	 *
++	 * @return string either $url if $url is considered to be harmless, or an
++	 *                empty string otherwise
++	 */
++	public static function sanitizeBackEndUrl($url = '') {
++		$whitelistPattern = '/^[a-zA-Z0-9_\/\.&=\?]+$/';
++		if (!preg_match($whitelistPattern, $url)) {
++			$url = '';
++		}
++
++		return $url;
++	}
++
++	/**
+ 	 * Moves $source file to $destination if uploaded, otherwise try to make a copy
+ 	 * Usage: 4
+ 	 *
+@@ -5207,21 +5227,27 @@
+ 		return $paramsArr;
+ 	}
+ 
+-
+ 	/**
+-	 * Quotes a string for usage as JS parameter. Depends wheter the value is used in script tags (it doesn't need/must not get htmlspecialchar'ed in this case)
+-	 *
+-	 * @param	string		The string to encode.
+-	 * @param	boolean		If the values get's used in <script> tags.
+-	 * @return	string		The encoded value already quoted
+-	 */
+-	public static function quoteJSvalue($value, $inScriptTags = false)	{
+-		$value = addcslashes($value, '\''.'"'.chr(10).chr(13));
+-		if (!$inScriptTags)	{
+-			$value = htmlspecialchars($value);
++	 * Quotes a string for usage as JS parameter. Depends whether the value is
++	 * used in script tags (it doesn't need/must not get htmlspecialchar'ed in
++	 * this case).
++	 *
++	 * @param string $value the string to encode, may be empty
++	 * @param boolean $withinCData
++	 *        whether the escaped data is expected to be used as CDATA and thus
++	 *        does not need to be htmlspecialchared
++	 *
++	 * @return string the encoded value already quoted (with single quotes),
++	 *                will not be empty
++	 */
++	public static function quoteJSvalue($value, $withinCData = false)	{
++		$escapedValue = addcslashes(
++			$value, '\'' . '"' . '\\' . chr(9) . chr(10) . chr(13)
++		);
++		if (!$withinCData) {
++			$escapedValue = htmlspecialchars($escapedValue);
+ 		}
+-		return '\''.$value.'\'';
++		return '\'' . $escapedValue . '\'';
+ 	}
+ }
+-
+-?>
++?>
+\ Kein Zeilenumbruch am Dateiende.
+diff -Naur typo3-src-4.2.9/t3lib/class.t3lib_extfilefunc.php typo3-src-4.2.10/t3lib/class.t3lib_extfilefunc.php
+--- typo3-src-4.2.9/t3lib/class.t3lib_extfilefunc.php	2009-09-28 19:58:33.000000000 +0200
++++ typo3-src-4.2.10/t3lib/class.t3lib_extfilefunc.php	2009-10-22 14:14:56.000000000 +0200
+@@ -696,7 +696,7 @@
+ 		if (!$this->isInit) return FALSE;
+ 
+ 		$theFolder = $this->cleanFileName($cmds['data']);
+-		if (isset($theFolder))	{
++		if (isset($theFolder) && trim($theFolder) != '') {
+ 			if ($this->checkFileNameLen($theFolder))	{
+ 				$theTarget = $this->is_directory($cmds['target']);	// Check the target dir
+ 				if ($theTarget)	{
+diff -Naur typo3-src-4.2.9/t3lib/class.t3lib_fullsearch.php typo3-src-4.2.10/t3lib/class.t3lib_fullsearch.php
+--- typo3-src-4.2.9/t3lib/class.t3lib_fullsearch.php	2009-09-28 19:58:33.000000000 +0200
++++ typo3-src-4.2.10/t3lib/class.t3lib_fullsearch.php	2009-10-22 14:14:56.000000000 +0200
+@@ -627,7 +627,7 @@
+ 				if ($SET['search_result_labels'])	{
+ 					$fVnew = $this->getProcessedValueExtra($table, $fN, $fV, $conf, '<br />');
+ 				} else {
+-					$fVnew = $fV;
++					$fVnew = htmlspecialchars($fV);
+ 				}
+ 				$out.='<td'.$TDparams.'>'.$fVnew.'</td>';
+ 			}
+diff -Naur typo3-src-4.2.9/t3lib/class.t3lib_stdgraphic.php typo3-src-4.2.10/t3lib/class.t3lib_stdgraphic.php
+--- typo3-src-4.2.9/t3lib/class.t3lib_stdgraphic.php	2009-09-28 19:58:33.000000000 +0200
++++ typo3-src-4.2.10/t3lib/class.t3lib_stdgraphic.php	2009-10-22 14:14:56.000000000 +0200
+@@ -2519,7 +2519,7 @@
+ 			$this->IM_commands[] = array($output,$cmd);
+ 
+ 			$ret = exec($cmd);
+-			t3lib_div::fixPermissions($this->wrapFileName($output));	// Change the permissions of the file
++			t3lib_div::fixPermissions($output);	// Change the permissions of the file
+ 
+ 			return $ret;
+ 		}
+@@ -2550,7 +2550,7 @@
+ 			$this->IM_commands[] = Array ($output,$cmd);
+ 
+ 			$ret = exec($cmd);
+-			t3lib_div::fixPermissions($this->wrapFileName($output));	// Change the permissions of the file
++			t3lib_div::fixPermissions($output);	// Change the permissions of the file
+ 
+ 			if (is_file($theMask))	{
+ 				@unlink($theMask);
+@@ -2561,17 +2561,14 @@
+ 	}
+ 
+ 	/**
+-	 * Wrapping the input filename in double-quotes
++	 * Escapes a file name so it can safely be used on the command line.
+ 	 *
+-	 * @param	string		Input filename
+-	 * @return	string		The output wrapped in "" (if there are spaces in the filepath)
+-	 * @access private
++	 * @param string $inputName filename to safeguard, must not be empty
++	 *
++	 * @return string $inputName escaped as needed
+ 	 */
+-	function wrapFileName($inputName)	{
+-		if (strstr($inputName,' '))	{
+-			$inputName='"'.$inputName.'"';
+-		}
+-		return $inputName;
++	protected function wrapFileName($inputName) {
++		return escapeshellarg($inputName);
+ 	}
+ 
+ 
+diff -Naur typo3-src-4.2.9/t3lib/class.t3lib_tsfebeuserauth.php typo3-src-4.2.10/t3lib/class.t3lib_tsfebeuserauth.php
+--- typo3-src-4.2.9/t3lib/class.t3lib_tsfebeuserauth.php	2009-09-28 19:58:33.000000000 +0200
++++ typo3-src-4.2.10/t3lib/class.t3lib_tsfebeuserauth.php	2009-10-22 14:14:56.000000000 +0200
+@@ -1085,6 +1085,7 @@
+ 		global $TCA, $TYPO3_CONF_VARS;
+ 			// Commands:
+ 		list($table,$uid) = explode(':',$this->TSFE_EDIT['record']);
++		$uid = intval($uid);
+ 		if ($this->TSFE_EDIT['cmd'] && $table && $uid && isset($TCA[$table])) {
+ 			$tce = t3lib_div::makeInstance('t3lib_TCEmain');
+ 			$tce->stripslashes_values=0;
+diff -Naur typo3-src-4.2.9/t3lib/thumbs.php typo3-src-4.2.10/t3lib/thumbs.php
+--- typo3-src-4.2.9/t3lib/thumbs.php	2009-09-28 19:58:33.000000000 +0200
++++ typo3-src-4.2.10/t3lib/thumbs.php	2009-10-22 14:14:56.000000000 +0200
+@@ -372,17 +372,14 @@
+ 	}
+ 
+ 	/**
+-	 * Wrapping the input filename in double-quotes
++	 * Escapes a file name so it can safely be used on the command line.
+ 	 *
+-	 * @param	string		Input filename
+-	 * @return	string		The output wrapped in "" (if there are spaces in the filepath)
+-	 * @access private
++	 * @param string $inputName filename to safeguard, must not be empty
++	 *
++	 * @return string $inputName escaped as needed
+ 	 */
+-	function wrapFileName($inputName)	{
+-		if (strstr($inputName,' '))	{
+-			$inputName='"'.$inputName.'"';
+-		}
+-		return $inputName;
++	protected function wrapFileName($inputName) {
++		return escapeshellarg($inputName);
+ 	}
+ }
+ 
+diff -Naur typo3-src-4.2.9/typo3/alt_main.php typo3-src-4.2.10/typo3/alt_main.php
+--- typo3-src-4.2.9/typo3/alt_main.php	2009-09-28 19:59:18.000000000 +0200
++++ typo3-src-4.2.10/typo3/alt_main.php	2009-10-22 14:15:26.000000000 +0200
+@@ -479,7 +479,7 @@
+ 		if ($module) {
+ 			$this->mainJScode.='
+ 		// open in module:
+-	top.goToModule(\''.$module.'\',false,\''.$params.'\');
++	top.goToModule(\''.$module.'\',false,'.t3lib_div::quoteJSvalue($params).');
+ 			';
+ 		}
+ 	}
+diff -Naur typo3-src-4.2.9/typo3/alt_mod_frameset.php typo3-src-4.2.10/typo3/alt_mod_frameset.php
+--- typo3-src-4.2.9/typo3/alt_mod_frameset.php	2009-09-28 19:59:18.000000000 +0200
++++ typo3-src-4.2.10/typo3/alt_mod_frameset.php	2009-10-22 14:15:26.000000000 +0200
+@@ -87,8 +87,8 @@
+ 		global $BE_USER,$TBE_TEMPLATE,$TBE_STYLES;
+ 
+ 			// GPvars:
+-		$this->exScript = t3lib_div::_GP('exScript');
+-		$this->id = t3lib_div::_GP('id');
++		$this->exScript = t3lib_div::sanitizeBackEndUrl(t3lib_div::_GP('exScript'));
++		$this->id = intval(t3lib_div::_GP('id'));
+ 		$this->fW = t3lib_div::_GP('fW');
+ 
+ 			// Setting resizing flag:
+@@ -103,8 +103,8 @@
+ 		}
+ 
+ 			// Navigation frame URL:
+-		$script = t3lib_div::_GP('script');
+-		$nav = t3lib_div::_GP('nav');
++		$script = t3lib_div::sanitizeBackEndUrl(t3lib_div::_GP('script'));
++		$nav = t3lib_div::sanitizeBackEndUrl(t3lib_div::_GP('nav'));
+ 		$URL_nav = htmlspecialchars($nav.'&currentSubScript='.rawurlencode($script));
+ 
+ 			// List frame URL:
+diff -Naur typo3-src-4.2.9/typo3/alt_palette.php typo3-src-4.2.10/typo3/alt_palette.php
+--- typo3-src-4.2.9/typo3/alt_palette.php	2009-09-28 19:59:18.000000000 +0200
++++ typo3-src-4.2.10/typo3/alt_palette.php	2009-10-22 14:15:26.000000000 +0200
+@@ -247,15 +247,19 @@
+ 	function init()	{
+ 
+ 			// Setting GPvars, etc.
+-		$this->formName = t3lib_div::_GP('formName');
+-		$this->GPbackref = t3lib_div::_GP('backRef');
++		$this->formName = $this->sanitizeHtmlName(t3lib_div::_GP('formName'));
++		$this->GPbackref = $this->sanitizeHtmlName(t3lib_div::_GP('backRef'));
+ 		$this->inData = t3lib_div::_GP('inData');
+-		$this->prependFormFieldNames = t3lib_div::_GP('prependFormFieldNames');
++			// safeguards the input with whitelisting
++		if (!preg_match('/^[a-zA-Z0-9\-_\:]+$/', $this->inData)) {
++			$this->inData = '';
++		}
++		$this->prependFormFieldNames =
++			$this->sanitizeHtmlName(t3lib_div::_GP('prependFormFieldNames'));
+ 		$this->rec = t3lib_div::_GP('rec');
+ 
+ 			// Making references:
+ 		$this->backRef = $this->GPbackref ? $this->GPbackref : 'window.opener';
+-#		$this->backRef = 'top.content.list_frame.view_frame';
+ 
+ 		$this->formRef = $this->backRef.'.document.'.$this->formName;
+ 
+@@ -294,6 +298,24 @@
+ 	}
+ 
+ 	/**
++	 * Sanitizes HTML names, IDs, frame names etc.
++	 *
++	 * @param string $input the string to sanitize
++	 *
++	 * @return string the unchanged $input if $input is considered to be harmless,
++	 *                an empty string otherwise
++	 */
++	protected function sanitizeHtmlName($input) {
++		$result = $input;
++
++		if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_\-\.]*$/', $result)) {
++			$result = '';
++		}
++
++		return $result;
++	}
++
++	/**
+ 	 * Main function, rendering the palette form
+ 	 *
+ 	 * @return	void
+diff -Naur typo3-src-4.2.9/typo3/backend.php typo3-src-4.2.10/typo3/backend.php
+--- typo3-src-4.2.9/typo3/backend.php	2009-09-28 19:59:18.000000000 +0200
++++ typo3-src-4.2.10/typo3/backend.php	2009-10-22 14:15:26.000000000 +0200
+@@ -621,7 +621,7 @@
+ 			});
+ 		}
+ 
+-		startInModule(\''.$startModule.'\', false, \''.$moduleParameters.'\');
++		startInModule(\''.$startModule.'\', false, '.t3lib_div::quoteJSvalue($moduleParameters).');
+ 			';
+ 		}
+ 	}
+diff -Naur typo3-src-4.2.5/typo3/contrib/RemoveXSS/RemoveXSS.php typo3-src-4.2.10/typo3/contrib/RemoveXSS/RemoveXSS.php
+--- typo3-src-4.2.5/typo3/contrib/RemoveXSS/RemoveXSS.php	2009-10-22 20:41:56.000000000 +0200
++++ typo3-src-4.2.10/typo3/contrib/RemoveXSS/RemoveXSS.php	2009-10-22 14:14:56.000000000 +0200
+@@ -10,74 +10,127 @@
+  * Used with permission by the author.
+  * URL: http://quickwired.com/smallprojects/php_xss_filter_function.php
+  *
++ * Check XSS attacks on http://ha.ckers.org/xss.html
++ *
+  * License:
+  * This code is public domain, you are free to do whatever you want with it,
+  * including adding it to your own project which can be under any license.
+  *
+- * $Id: RemoveXSS.php 2663 2007-11-05 09:22:23Z ingmars $
++ * $Id: RemoveXSS.php 6228 2009-10-22 07:40:09Z baschny $
+  *
+  * @author	Travis Puderbaugh <kallahar@quickwired.com>
+- * @package RemoveXSS
++ * @author	Jigal van Hemert <jigal@xs4all.nl>
++ * @package	RemoveXSS
+  */
+ class RemoveXSS {
++	/**
++	 * Removes potential XSS code from an input string.
++	 * Wrapper for RemoveXSS::process().
++	 *
++	 * Using an external class by Travis Puderbaugh <kallahar@quickwired.com>
++	 *
++	 * @param	string		Input string
++	 * @param	string		replaceString for inserting in keywords (which destroyes the tags)
++	 * @return	string		Input string with potential XSS code removed
++	 */
++	public function RemoveXSS($val, $replaceString = '<x>') {
++		return self::process($val, $replaceString);
++	}
+ 
+ 	/**
+-	 * Wrapper for the RemoveXSS function.
+ 	 * Removes potential XSS code from an input string.
+ 	 *
+ 	 * Using an external class by Travis Puderbaugh <kallahar@quickwired.com>
+ 	 *
+ 	 * @param	string		Input string
++	 * @param	string		replaceString for inserting in keywords (which destroyes the tags)
+ 	 * @return	string		Input string with potential XSS code removed
+ 	 */
+-	function RemoveXSS($val)	{
++	function process($val, $replaceString = '<x>') {
++		// don't use empty $replaceString because then no XSS-remove will be done
++		if ($replaceString == '') {
++			$replaceString = '<x>';
++		}
+ 		// remove all non-printable characters. CR(0a) and LF(0b) and TAB(9) are allowed
+ 		// this prevents some character re-spacing such as <java\0script>
+ 		// note that you have to handle splits with \n, \r, and \t later since they *are* allowed in some inputs
+-		$val = preg_replace('/([\x00-\x08][\x0b-\x0c][\x0e-\x20])/', '', $val);
++		$val = preg_replace('/([\x00-\x08][\x0b-\x0c][\x0e-\x19])/', '', $val);
+ 
+ 		// straight replacements, the user should never need these since they're normal characters
+ 		// this prevents like <IMG SRC=&#X40&#X61&#X76&#X61&#X73&#X63&#X72&#X69&#X70&#X74&#X3A&#X61&#X6C&#X65&#X72&#X74&#X28&#X27&#X58&#X53&#X53&#X27&#X29>
+-		$search = 'abcdefghijklmnopqrstuvwxyz';
+-		$search.= 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+-		$search.= '1234567890!@#$%^&*()';
+-		$search.= '~`";:?+/={}[]-_|\'\\';
+-
+-		for ($i = 0; $i < strlen($search); $i++) {
+-			// ;? matches the ;, which is optional
+-			// 0{0,7} matches any padded zeros, which are optional and go up to 8 chars
+-
+-			// &#x0040 @ search for the hex values
+-			$val = preg_replace('/(&#[x|X]0{0,8}'.dechex(ord($search[$i])).';?)/i', $search[$i], $val); // with a ;
+-			// &#00064 @ 0{0,7} matches '0' zero to seven times
+-			$val = preg_replace('/(&#0{0,8}'.ord($search[$i]).';?)/', $search[$i], $val); // with a ;
+-		}
++		$search = '/&#[xX]0{0,8}(21|22|23|24|25|26|27|28|29|2a|2b|2d|2f|30|31|32|33|34|35|36|37|38|39|3a|3b|3d|3f|40|41|42|43|44|45|46|47|48|49|4a|4b|4c|4d|4e|4f|50|51|52|53|54|55|56|57|58|59|5a|5b|5c|5d|5e|5f|60|61|62|63|64|65|66|67|68|69|6a|6b|6c|6d|6e|6f|70|71|72|73|74|75|76|77|78|79|7a|7b|7c|7d|7e);?/ie';
++		$val = preg_replace($search, "chr(hexdec('\\1'))", $val);
++		$search = '/&#0{0,8}(33|34|35|36|37|38|39|40|41|42|43|45|47|48|49|50|51|52|53|54|55|56|57|58|59|61|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94|95|96|97|98|99|100|101|102|103|104|105|106|107|108|109|110|111|112|113|114|115|116|117|118|119|120|121|122|123|124|125|126);?/ie';
++		$val = preg_replace($search, "chr('\\1')", $val);
+ 
+ 		// now the only remaining whitespace attacks are \t, \n, and \r
+-		$ra1 = array('javascript', 'vbscript', 'expression', 'applet', 'meta', 'xml', 'blink', 'link', 'style', 'script', 'embed', 'object', 'iframe', 'frame', 'frameset', 'ilayer', 'layer', 'bgsound', 'title', 'base');
+-		$ra2 = array('onabort', 'onactivate', 'onafterprint', 'onafterupdate', 'onbeforeactivate', 'onbeforecopy', 'onbeforecut', 'onbeforedeactivate', 'onbeforeeditfocus', 'onbeforepaste', 'onbeforeprint', 'onbeforeunload', 'onbeforeupdate', 'onblur', 'onbounce', 'oncellchange', 'onchange', 'onclick', 'oncontextmenu', 'oncontrolselect', 'oncopy', 'oncut', 'ondataavailable', 'ondatasetchanged', 'ondatasetcomplete', 'ondblclick', 'ondeactivate', 'ondrag', 'ondragend', 'ondragenter', 'ondragleave', 'ondragover', 'ondragstart', 'ondrop', 'onerror', 'onerrorupdate', 'onfilterchange', 'onfinish', 'onfocus', 'onfocusin', 'onfocusout', 'onhelp', 'onkeydown', 'onkeypress', 'onkeyup', 'onlayoutcomplete', 'onload', 'onlosecapture', 'onmousedown', 'onmouseenter', 'onmouseleave', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup', 'onmousewheel', 'onmove', 'onmoveend', 'onmovestart', 'onpaste', 'onpropertychange', 'onreadystatechange', 'onreset', 'onresize', 'onresizeend', 'onresizestart', 'onrowenter', 'onrowexit', 'onrowsdelete', 'onrowsinserted', 'onscroll', 'onselect', 'onselectionchange', 'onselectstart', 'onstart', 'onstop', 'onsubmit', 'onunload');
+-		$ra = array_merge($ra1, $ra2);
+-
+-		$found = true; // keep replacing as long as the previous round replaced something
+-		while ($found == true) {
+-			$val_before = $val;
+-			for ($i = 0; $i < sizeof($ra); $i++) {
+-				$pattern = '/';
+-				for ($j = 0; $j < strlen($ra[$i]); $j++) {
+-					if ($j > 0) {
+-						$pattern .= '(';
+-						$pattern .= '(&#[x|X]0{0,8}([9][a][b]);?)?';
+-						$pattern .= '|(&#0{0,8}([9][10][13]);?)?';
+-						$pattern .= ')?';
+-					}
+-					$pattern .= $ra[$i][$j];
++		$ra1 = array('javascript', 'vbscript', 'expression', 'applet', 'meta', 'xml', 'blink', 'link', 'style', 'script', 'embed', 'object', 'iframe', 'frame', 'frameset', 'ilayer', 'layer', 'bgsound', 'title', 'base', 'onabort', 'onactivate', 'onafterprint', 'onafterupdate', 'onbeforeactivate', 'onbeforecopy', 'onbeforecut', 'onbeforedeactivate', 'onbeforeeditfocus', 'onbeforepaste', 'onbeforeprint', 'onbeforeunload', 'onbeforeupdate', 'onblur', 'onbounce', 'oncellchange', 'onchange', 'onclick', 'oncontextmenu', 'oncontrolselect', 'oncopy', 'oncut', 'ondataavailable', 'ondatasetchanged', 'ondatasetcomplete', 'ondblclick', 'ondeactivate', 'ondrag', 'ondragend', 'ondragenter', 'ondragleave', 'ondragover', 'ondragstart', 'ondrop', 'onerror', 'onerrorupdate', 'onfilterchange', 'onfinish', 'onfocus', 'onfocusin', 'onfocusout', 'onhelp', 'onkeydown', 'onkeypress', 'onkeyup', 'onlayoutcomplete', 'onload', 'onlosecapture', 'onmousedown', 'onmouseenter', 'onmouseleave', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup', 'onmousewheel', 'onmove', 'onmoveend', 'onmovestart', 'onpaste', 'onpropertychange', 'onreadystatechange', 'onreset', 'onresize', 'onresizeend', 'onresizestart', 'onrowenter', 'onrowexit', 'onrowsdelete', 'onrowsinserted', 'onscroll', 'onselect', 'onselectionchange', 'onselectstart', 'onstart', 'onstop', 'onsubmit', 'onunload');
++		$ra_tag = array('applet', 'meta', 'xml', 'blink', 'link', 'style', 'script', 'embed', 'object', 'iframe', 'frame', 'frameset', 'ilayer', 'layer', 'bgsound', 'title', 'base');
++		$ra_attribute = array('style', 'onabort', 'onactivate', 'onafterprint', 'onafterupdate', 'onbeforeactivate', 'onbeforecopy', 'onbeforecut', 'onbeforedeactivate', 'onbeforeeditfocus', 'onbeforepaste', 'onbeforeprint', 'onbeforeunload', 'onbeforeupdate', 'onblur', 'onbounce', 'oncellchange', 'onchange', 'onclick', 'oncontextmenu', 'oncontrolselect', 'oncopy', 'oncut', 'ondataavailable', 'ondatasetchanged', 'ondatasetcomplete', 'ondblclick', 'ondeactivate', 'ondrag', 'ondragend', 'ondragenter', 'ondragleave', 'ondragover', 'ondragstart', 'ondrop', 'onerror', 'onerrorupdate', 'onfilterchange', 'onfinish', 'onfocus', 'onfocusin', 'onfocusout', 'onhelp', 'onkeydown', 'onkeypress', 'onkeyup', 'onlayoutcomplete', 'onload', 'onlosecapture', 'onmousedown', 'onmouseenter', 'onmouseleave', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup', 'onmousewheel', 'onmove', 'onmoveend', 'onmovestart', 'onpaste', 'onpropertychange', 'onreadystatechange', 'onreset', 'onresize', 'onresizeend', 'onresizestart', 'onrowenter', 'onrowexit', 'onrowsdelete', 'onrowsinserted', 'onscroll', 'onselect', 'onselectionchange', 'onselectstart', 'onstart', 'onstop', 'onsubmit', 'onunload');
++		$ra_protocol = array('javascript', 'vbscript', 'expression');
++
++		//remove the potential &#xxx; stuff for testing
++		$val2 = preg_replace('/(&#[xX]?0{0,8}(9|10|13|a|b);)*\s*/i', '', $val);
++		$ra = array();
++
++		foreach ($ra1 as $ra1word) {
++			//stripos is faster than the regular expressions used later
++			//and because the words we're looking for only have chars < 0x80
++			//we can use the non-multibyte safe version
++			if (stripos($val2, $ra1word ) !== false ) {
++				//keep list of potential words that were found
++				if (in_array($ra1word, $ra_protocol)) {
++					$ra[] = array($ra1word, 'ra_protocol');
++				}
++				if (in_array($ra1word, $ra_tag)) {
++					$ra[] = array($ra1word, 'ra_tag');
++				}
++				if (in_array($ra1word, $ra_attribute)) {
++					$ra[] = array($ra1word, 'ra_attribute');
+ 				}
+-				$pattern .= '/i';
+-				$replacement = substr($ra[$i], 0, 2).'<x>'.substr($ra[$i], 2); // add in <> to nerf the tag
+-				$val = preg_replace($pattern, $replacement, $val); // filter out the hex tags
+-				if ($val_before == $val) {
+-					// no replacements were made, so exit the loop
+-					$found = false;
++				//some keywords appear in more than one array
++				//these get multiple entries in $ra, each with the appropriate type
++			}
++		}
++		//only process potential words
++		if (count($ra) > 0) {
++			// keep replacing as long as the previous round replaced something
++			$found = true;
++			while ($found == true) {
++				$val_before = $val;
++				for ($i = 0; $i < sizeof($ra); $i++) {
++					$pattern = '';
++					for ($j = 0; $j < strlen($ra[$i][0]); $j++) {
++						if ($j > 0) {
++							$pattern .= '((&#[xX]0{0,8}([9ab]);)|(&#0{0,8}(9|10|13);)|\s)*';
++						}
++						$pattern .= $ra[$i][0][$j];
++					}
++					//handle each type a little different (extra conditions to prevent false positives a bit better)
++					switch ($ra[$i][1]) {
++						case 'ra_protocol':
++							//these take the form of e.g. 'javascript:'
++							$pattern .= '((&#[xX]0{0,8}([9ab]);)|(&#0{0,8}(9|10|13);)|\s)*(?=:)';
++							break;
++						case 'ra_tag':
++							//these take the form of e.g. '<SCRIPT[^\da-z] ....';
++							$pattern = '(?<=<)' . $pattern . '((&#[xX]0{0,8}([9ab]);)|(&#0{0,8}(9|10|13);)|\s)*(?=[^\da-z])';
++							break;
++						case 'ra_attribute':
++							//these take the form of e.g. 'onload='  Beware that a lot of characters are allowed
++							//between the attribute and the equal sign!
++							$pattern .= '[\s\!\#\$\%\&\(\)\*\~\+\-\_\.\,\:\;\?\@\[\/\|\\\\\]\^\`]*(?==)';
++							break;
++					}
++					$pattern = '/' . $pattern . '/i';
++					// add in <x> to nerf the tag
++					$replacement = substr_replace($ra[$i][0], $replaceString, 2, 0);
++					// filter out the hex tags
++					$val = preg_replace($pattern, $replacement, $val);
++					if ($val_before == $val) {
++						// no replacements were made, so exit the loop
++						$found = false;
++					}
+ 				}
+ 			}
+ 		}
+diff -Naur typo3-src-4.2.9/typo3/sysext/cms/tslib/class.tslib_fe.php typo3-src-4.2.10/typo3/sysext/cms/tslib/class.tslib_fe.php
+--- typo3-src-4.2.9/typo3/sysext/cms/tslib/class.tslib_fe.php	2009-09-28 19:59:03.000000000 +0200
++++ typo3-src-4.2.10/typo3/sysext/cms/tslib/class.tslib_fe.php	2009-10-22 14:15:17.000000000 +0200
+@@ -3991,20 +3991,27 @@
+ 	}
+ 
+ 	/**
+-	 * Encrypts a strings by XOR'ing all characters with the ASCII value of a character in $this->TYPO3_CONF_VARS['SYS']['encryptionKey']
+-	 * If $this->TYPO3_CONF_VARS['SYS']['encryptionKey'] is empty, 255 is used for XOR'ing. Using XOR means that the string can be decrypted by simply calling the function again - just like rot-13 works (but in this case for ANY byte value).
++	 * Encrypts a strings by XOR'ing all characters with a key derived from the
++	 * TYPO3 encryption key.
+ 	 *
+-	 * @param	string		Input string
+-	 * @return	string		Output string
++	 * Using XOR means that the string can be decrypted by simply calling the
++	 * function again - just like rot-13 works (but in this case for ANY byte
++	 * value).
++	 *
++	 * @param string $string string to crypt, may be empty
++	 *
++	 * @return string binary crypt string, will have the same length as $string
+ 	 */
+-	function roundTripCryptString($string)	{
++	protected function roundTripCryptString($string) {
+ 		$out = '';
+-		$strLen = strlen($string);
+-		$cryptLen = strlen($this->TYPO3_CONF_VARS['SYS']['encryptionKey']);
+ 
+-		for ($a=0; $a < $strLen; $a++)	{
+-			$xorVal = $cryptLen>0 ? ord($this->TYPO3_CONF_VARS['SYS']['encryptionKey']{($a%$cryptLen)}) : 255;
+-			$out.= chr(ord($string{$a}) ^ $xorVal);
++		$cleartextLength = strlen($string);
++		$key = sha1($this->TYPO3_CONF_VARS['SYS']['encryptionKey']);
++		$keyLength = strlen($key);
++
++		for ($a = 0; $a < $cleartextLength; $a++) {
++			$xorVal = ord($key{($a % $keyLength)});
++			$out .= chr(ord($string{$a}) ^ $xorVal);
+ 		}
+ 
+ 		return $out;
+diff -Naur typo3-src-4.2.9/typo3/sysext/install/mod/class.tx_install.php typo3-src-4.2.10/typo3/sysext/install/mod/class.tx_install.php
+--- typo3-src-4.2.9/typo3/sysext/install/mod/class.tx_install.php	2009-09-28 19:59:05.000000000 +0200
++++ typo3-src-4.2.10/typo3/sysext/install/mod/class.tx_install.php	2009-10-22 14:15:18.000000000 +0200
+@@ -39,7 +39,7 @@
+  *
+  *  162: class tx_install extends t3lib_install
+  *  234:     function tx_install()
+- *  318:     function checkPassword($uKey)
++ *  318:     function checkPassword()
+  *  362:     function loginForm()
+  *  396:     function init()
+  *  574:     function stepOutput()
+@@ -150,6 +150,7 @@
+ 
+ require_once (PATH_t3lib.'class.t3lib_install.php');
+ require_once (PATH_t3lib.'class.t3lib_stdgraphic.php');
++require_once (t3lib_extMgm::extPath('install') . 'mod/class.tx_install_session.php');
+ 
+ // include update classes
+ require_once(t3lib_extMgm::extPath('install').'updates/class.tx_coreupdates_compatversion.php');
+@@ -211,6 +212,12 @@
+ 		'no_database' => 0
+ 	);
+ 	var $typo3temp_path='';
++	/**
++	 * the session handling object
++	 *
++	 * @var tx_install_session
++	 */
++	protected $session = NULL;
+ 
+ 	var $menuitems = array(
+ 		'config' => 'Basic Configuration',
+@@ -224,7 +231,6 @@
+ 		'typo3conf_edit' => 'Edit files in typo3conf/',
+ 		'about' => 'About'
+ 	);
+-	var $cookie_name = 'Typo3InstallTool';
+ 	var $JSmessage = '';
+ 
+ 
+@@ -255,11 +261,26 @@
+ 			// ****************************
+ 		$this->INSTALL = t3lib_div::_GP('TYPO3_INSTALL');
+ 		$this->mode = t3lib_div::_GP('mode');
+-		$this->step = t3lib_div::_GP('step');
++		if ($this->mode !== '123') {
++			$this->mode = '';
++		}
++		if (t3lib_div::_GP('step') === 'go') {
++			$this->step = 'go';
++		} else {
++			$this->step = intval(t3lib_div::_GP('step'));
++		}
+ 		$this->redirect_url = t3lib_div::_GP('redirect_url');
+ 
+-		if ($_GET['TYPO3_INSTALL']['type'])	{
+-			$this->INSTALL['type'] = $_GET['TYPO3_INSTALL']['type'];
++		$this->INSTALL['type'] = '';
++		if ($_GET['TYPO3_INSTALL']['type']) {
++			$allowedTypes = array(
++				'config', 'database', 'update', 'images', 'extConfig',
++				'typo3temp', 'cleanup', 'phpinfo', 'typo3conf_edit', 'about'
++			);
++
++			if (in_array($_GET['TYPO3_INSTALL']['type'], $allowedTypes)) {
++				$this->INSTALL['type'] = $_GET['TYPO3_INSTALL']['type'];
++			}
+ 		}
+ 
+ 		if ($this->step == 3) {
+@@ -281,18 +302,22 @@
+ 			}
+ 		}
+ 
+-		$this->action = $this->scriptSelf.'?TYPO3_INSTALL[type]='.$this->INSTALL['type'].($this->mode?'&mode='.rawurlencode($this->mode):'').($this->step?'&step='.rawurlencode($this->step):'');
++		$this->action = $this->scriptSelf .
++			'?TYPO3_INSTALL[type]=' . $this->INSTALL['type'] .
++			($this->mode? '&mode=' . $this->mode : '') .
++			($this->step? '&step=' . $this->step : '');
+ 		$this->typo3temp_path = PATH_site.'typo3temp/';
++		if (!is_dir($this->typo3temp_path) || !is_writeable($this->typo3temp_path)) {
++			die('Install Tool needs to write to typo3temp/. Make sure this directory is writeable by your webserver: '. $this->typo3temp_path);
++		}
+ 
++		$this->session = t3lib_div::makeInstance('tx_install_session');
+ 
+-			// ****************
+-			// Check password
+-			// ****************
+-			// Getting a unique session key, used to encode the session-access cookie later...
+-		$uKey = $_COOKIE[$this->cookie_name.'_key'];
+-		if (!$uKey)	{
+-			$uKey = md5(uniqid(microtime()));
+-			SetCookie($this->cookie_name.'_key', $uKey, 0, '/');		// Cookie is set
++			// *******************
++			// Check authorization
++			// *******************
++		if (!$this->session->hasSession()) {
++			$this->session->startSession();
+ 
+ 			$this->JSmessage='SECURITY:
+ Make sure to protect the Install Tool with another password than "joh316".
+@@ -305,11 +330,9 @@
+ 
+ BTW: This Install Tool will only work if cookies are accepted by your web browser. If this dialog pops up over and over again you didn\'t enable cookies.
+ ';
+-
+ 		}
+-			// Check if the password from TYPO3_CONF_VARS combined with uKey matches the sKey cookie. If not, ask for password.
+-		$sKey = $_COOKIE[$this->cookie_name];
+ 
+-		if (md5($GLOBALS['TYPO3_CONF_VARS']['BE']['installToolPassword'].'|'.$uKey) == $sKey || $this->checkPassword($uKey))	{
++		if ($this->session->isAuthorized() || $this->checkPassword())	{
+ 			$this->passwordOK=1;
++			$this->session->refreshSession();
+ 			if($this->redirect_url)	{
+@@ -328,17 +351,18 @@
+ 	}
+ 
+ 	/**
+-	 * Returns true if submitted password is ok. Else displays a form in which to enter password.
++	 * Returns true if submitted password is ok.
++	 *
++	 * If password is ok, set session as "authorized".
+ 	 *
+-	 * @param	[type]		$uKey: ...
+-	 * @return	bool		whether the submitted password is ok 
++	 * @return boolean true if the submitted password was ok and session was
++	 *                 authorized, false otherwise
+ 	 */
+-	function checkPassword($uKey)	{
++	function checkPassword() {
+ 		$p = t3lib_div::_GP('password');
+ 
+ 		if ($p && md5($p)==$GLOBALS['TYPO3_CONF_VARS']['BE']['installToolPassword'])	{
+-			$sKey = md5($GLOBALS['TYPO3_CONF_VARS']['BE']['installToolPassword'].'|'.$uKey);
+-			SetCookie($this->cookie_name, $sKey, 0, '/');
++			$this->session->setAuthorized();
+ 
+ 				// Sending warning email
+ 			$wEmail = $GLOBALS['TYPO3_CONF_VARS']['BE']['warning_email_addr'];
+@@ -386,7 +410,7 @@
+ 
+ 		$content = '<form action="index.php" method="post" name="passwordForm">
+ 			<input type="password" name="password"><br />
+-			<input type="hidden" name="redirect_url" value="'.$redirect_url.'">
++			<input type="hidden" name="redirect_url" value="'.htmlspecialchars($redirect_url).'">
+ 			<input type="submit" value="Log in"><br />
+ 			<br />
+ 
+@@ -401,7 +425,10 @@
+ 			//-->
+ 			</script>';
+ 
+-		$this->message('Password', 'Enter the Install Tool Password', $content,3);
++		if (!$this->session->isAuthorized() && $this->session->isExpired()) {
++			$this->message('Password', 'Your install tool session has expired', '', 3);
++		}
++		$this->message('Password', 'Enter the Install Tool Password', $content, 2);
+ 		$this->output($this->outputWrapper($this->printAll()));
+ 	}
+ 
+diff -Naur typo3-src-4.2.9/typo3/sysext/install/mod/class.tx_install_session.php typo3-src-4.2.10/typo3/sysext/install/mod/class.tx_install_session.php
+--- typo3-src-4.2.9/typo3/sysext/install/mod/class.tx_install_session.php	1970-01-01 01:00:00.000000000 +0100
++++ typo3-src-4.2.10/typo3/sysext/install/mod/class.tx_install_session.php	2009-10-22 14:15:18.000000000 +0200
+@@ -0,0 +1,363 @@
++<?php
++/***************************************************************
++*  Copyright notice
++*
++*  (c) 2009 Ernesto Baschny <ernst@cron-it.de>
++*  All rights reserved
++*
++*  This script is part of the TYPO3 project. The TYPO3 project is
++*  free software; you can redistribute it and/or modify
++*  it under the terms of the GNU General Public License as published by
++*  the Free Software Foundation; either version 2 of the License, or
++*  (at your option) any later version.
++*
++*  The GNU General Public License can be found at
++*  http://www.gnu.org/copyleft/gpl.html.
++*  A copy is found in the textfile GPL.txt and important notices to the license
++*  from the author is found in LICENSE.txt distributed with these scripts.
++*
++*
++*  This script is distributed in the hope that it will be useful,
++*  but WITHOUT ANY WARRANTY; without even the implied warranty of
++*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++*  GNU General Public License for more details.
++*
++*  This copyright notice MUST APPEAR in all copies of the script!
++***************************************************************/
++
++/**
++ * Secure session handling for the install tool.
++ *
++ * @author	Ernesto Baschny <ernst@cron-it.de>
++ *
++ * @package TYPO3
++ * @subpackage tx_install
++ *
++ * @version $Id$
++ */
++class tx_install_session {
++
++	/**
++	 * The path to our typo3temp (where we can write our sessions). Set in the
++	 * constructor.
++	 *
++	 * @var string
++	 */
++	private $typo3tempPath;
++
++	/**
++	 * Path where to store our session files in typo3temp. %s will be
++	 * non-guesseable.
++	 *
++	 * @var string
++	 */
++	private $sessionPath = 'sessions%s';
++
++	/**
++	 * the cookie to store the session ID of the install tool
++	 *
++	 * @var string
++	 */
++	private $cookieName = 'Typo3InstallTool';
++
++	/**
++	 * time (minutes) to expire an ununsed session
++	 *
++	 * @var integer
++	 */
++	private $expireTimeInMinutes = 60;
++
++	/**
++	 * time (minutes) to generate a new session id for our current session
++	 *
++	 * @var integer
++	 */
++	private $regenerateSessionIdTime = 5;
++
++	/**
++	 * Constructor. Starts PHP session handling in our own private store
++	 *
++	 * Side-effect: might set a cookie, so must be called before any other output.
++	 */
++	public function __construct() {
++		$this->typo3tempPath = PATH_site . 'typo3temp/';
++
++		// Start our PHP session early so that hasSession() works
++		$sessionSavePath = $this->getSessionSavePath();
++		if (!is_dir($sessionSavePath)) {
++			if (!t3lib_div::mkdir($sessionSavePath)) {
++				die('Could not create session folder in typo3temp/. Make sure it is writeable!');
++			}
++			t3lib_div::writeFile($sessionSavePath.'/.htaccess', 'Order deny, allow'."\n".'Deny from all'."\n");
++			$indexContent = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">';
++			$indexContent .= '<HTML><HEAD<TITLE></TITLE><META http-equiv=Refresh Content="0; Url=../../">';
++			$indexContent .= '</HEAD></HTML>';
++			t3lib_div::writeFile($sessionSavePath.'/index.html', $indexContent);
++		}
++		// Register our "save" session handler
++		session_set_save_handler(
++			array($this, 'open'),
++			array($this, 'close'),
++			array($this, 'read'),
++			array($this, 'write'),
++			array($this, 'destroy'),
++			array($this, 'gc')
++		);
++		session_save_path($sessionSavePath);
++		session_name($this->cookieName);
++		ini_set('session.cookie_path', t3lib_div::getIndpEnv('TYPO3_SITE_PATH'));
++		// Always call the garbage collector to clean up stale session files
++		ini_set('session.gc_probability', 100);
++		ini_set('session.gc_divisor', 100);
++		ini_set('session.gc_maxlifetime', $this->expireTimeInMinutes*2*60);
++		if (version_compare(phpversion(), '5.2', '<')) {
++			ini_set('session.cookie_httponly', TRUE);
++		}
++		session_start();
++	}
++
++	/**
++	 * Returns the path where to store our session files
++	 */
++	private function getSessionSavePath() {
++		return sprintf(
++			$this->typo3tempPath . '/' . $this->sessionPath,
++			md5(
++				'session:' .
++					$GLOBALS['TYPO3_CONF_VARS']['BE']['installToolPassword']
++			)
++		);
++	}
++
++	/**
++	 * Starts a new session
++	 *
++	 * @return string The session ID
++	 */
++	public function startSession() {
++		$_SESSION['created'] = time();
++		return session_id();
++	}
++
++	/**
++	 * Generates a new session ID and sends it to the client.
++	 *
++	 * Also moves session information from the old session to the new one
++	 * (in PHP 5.1 or later)
++	 *
++	 * @return string the new session ID
++	 */
++	private function renewSession() {
++		if (version_compare(phpversion(), '5.1', '<')) {
++			session_regenerate_id(TRUE);
++		} else {
++			session_regenerate_id();
++		}
++		return session_id();
++	}
++
++	/**
++	 * Checks whether we already have an active session.
++	 *
++	 * @return boolean true if there is an active session, false otherwise
++	 */
++	public function hasSession() {
++		return (isset($_SESSION['created']));
++	}
++
++	/**
++	 * Returns the session ID of the running session.
++	 *
++	 * @return string the session ID
++	 */
++	public function getSessionId() {
++		return session_id();
++	}
++
++	/**
++	 * Returns a session hash, which can only be calculated by the server.
++	 * Used to store our session files without exposing the session ID.
++	 *
++	 * @param string An alternative session ID. Defaults to our current session ID
++	 *
++	 * @return string the session hash
++	 */
++	private function getSessionHash($sessionId = '') {
++		if (!$sessionId) {
++			$sessionId = $this->getSessionId();
++		}
++		return md5($GLOBALS['TYPO3_CONF_VARS']['BE']['installToolPassword'].'|'.$sessionId);
++	}
++
++	/**
++	 * Marks this session as an "authorized" one (login successful).
++	 * Should only be called if:
++	 * a) we have a valid session running
++	 * b) the "password" or some other authorization mechanism really matched
++	 *
++	 * @return void
++	 */
++	public function setAuthorized() {
++		$_SESSION['authorized'] = TRUE;
++		$_SESSION['lastSessionId'] = time();
++		$_SESSION['tstamp'] = time();
++		$_SESSION['expires'] = (time() + ($this->expireTimeInMinutes*60));
++	}
++
++	/**
++	 * Check if we have an already authorized session
++	 *
++	 * @return boolean True if this session has been authorized before (by a correct password)
++	 */
++	public function isAuthorized() {
++		if (!$_SESSION['authorized']) {
++			return FALSE;
++		}
++		if ($_SESSION['expires'] < time()) {
++			// This session has already expired
++			return FALSE;
++		}
++		return TRUE;
++	}
++
++	/**
++	 * Check if our session is expired.
++	 * Useful only right after a false "isAuthorized" to see if this is the
++	 * reason for not being authorized anymore.
++	 *
++	 * @return boolean True if an authorized session exists, but is expired
++	 */
++	public function isExpired() {
++		if (!$_SESSION['authorized']) {
++			// Session never existed, means it is not "expired"
++			return FALSE;
++		}
++		if ($_SESSION['expires'] < time()) {
++			// This session was authorized before, but has expired
++			return TRUE;
++		}
++		return FALSE;
++	}
++
++	/**
++	 * Refreshes our session information, rising the expire time.
++	 * Also generates a new session ID every 5 minutes to minimize the risk of
++	 * session hijacking.
++	 *
++	 * @return void
++	 */
++	public function refreshSession() {
++		$_SESSION['tstamp'] = time();
++		$_SESSION['expires'] = time() + ($this->expireTimeInMinutes*60);
++		if (time() > $_SESSION['lastSessionId']+$this->regenerateSessionIdTime*60) {
++			// Renew our session ID
++			$_SESSION['lastSessionId'] = time();
++			$this->renewSession();
++		}
++	}
++
++
++	/*************************
++	 *
++	 * PHP session handling with "secure" session files (hashed session id)
++	 * see http://www.php.net/manual/en/function.session-set-save-handler.php
++	 *
++	 *************************/
++
++	/**
++	 * Returns the file where to store our session data
++	 *
++	 * @return string A filename
++	 */
++	private function getSessionFile($id) {
++		$sessionSavePath = $this->getSessionSavePath();
++		return $sessionSavePath . '/hash_' . $this->getSessionHash($id);
++	}
++
++	/**
++	 * Open function. See @session_set_save_handler
++	 *
++	 * @param string $savePath
++	 * @param string $sessionName
++	 * @return boolean
++	 */
++	public function open($savePath, $sessionName) {
++		return TRUE;
++	}
++
++	/**
++	 * Close function. See @session_set_save_handler
++	 *
++	 * @return boolean
++	 */
++	public function close() {
++		return TRUE;
++	}
++
++	/**
++	 * Read session data. See @session_set_save_handler
++	 *
++	 * @param string The session id
++	 *
++	 * @return string
++	 */
++	public function read($id) {
++		$sessionFile = $this->getSessionFile($id);
++		return (string) @file_get_contents($sessionFile);
++	}
++
++	/**
++	 * Write session data. See @session_set_save_handler
++	 *
++	 * @param string The session id
++	 * @param string The data to be stored
++	 *
++	 * @return boolean
++	 */
++	public function write($id, $sessionData) {
++		$sessionFile = $this->getSessionFile($id);
++		if ($fp = @fopen($sessionFile, 'w')) {
++			$return = fwrite($fp, $sessionData);
++			fclose($fp);
++			return $return;
++		} else {
++			return FALSE;
++		}
++	}
++
++	/**
++	 * Destroys one session. See @session_set_save_handler
++	 *
++	 * @param string The session id
++	 *
++	 * @return string
++	 */
++	public function destroy($id) {
++		$sessionFile = $this->getSessionFile($id);
++		return(@unlink($sessionFile));
++	}
++
++	/**
++	 * Garbage collect session info. See @session_set_save_handler
++	 *
++	 * @param integer The setting of session.gc_maxlifetime
++	 *
++	 * @return string
++	 */
++	public function gc($maxLifeTime) {
++		$sessionSavePath = $this->getSessionSavePath();
++		foreach (glob($sessionSavePath . '/hash_*') as $filename) {
++			if (filemtime($filename) + ($this->expireTimeInMinutes*60) < time()) {
++				@unlink($filename);
++			}
++		}
++		return TRUE;
++	}
++
++}
++
++if (defined('TYPO3_MODE') && $TYPO3_CONF_VARS[TYPO3_MODE]['XCLASS']['ext/install/mod/class.tx_install_session.php'])	{
++	include_once($TYPO3_CONF_VARS[TYPO3_MODE]['XCLASS']['ext/install/mod/class.tx_install_session.php']);
++}
++
++?>
+\ Kein Zeilenumbruch am Dateiende.
+diff -Naur typo3-src-4.2.9/typo3/view_help.php typo3-src-4.2.10/typo3/view_help.php
+--- typo3-src-4.2.9/typo3/view_help.php	2009-09-28 19:59:18.000000000 +0200
++++ typo3-src-4.2.10/typo3/view_help.php	2009-10-22 14:15:26.000000000 +0200
+@@ -149,6 +149,10 @@
+ 
+ 			// Setting GPvars:
+ 		$this->tfID = t3lib_div::_GP('tfID');
++			// Sanitizes the tfID using whitelisting.
++		if (!preg_match('/^[a-zA-Z0-9_\-\.]*$/', $this->tfID)) {
++			$this->tfID = '';
++		}
+ 		if (!$this->tfID) {
+ 			if (($this->ffID = t3lib_div::_GP('ffID'))) {
+ 				$this->ffID = unserialize(base64_decode($this->ffID));

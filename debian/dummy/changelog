@@ -1,4 +1,26 @@
-typo3-dummy (4.3.0~alpha1-1) experimental; urgency=low
+typo3-dummy (4.3.0-1) unstable; urgency=low
+
+  * New upstream release.
+  * Added default php include_path to include_path in apache.conf
+  * Raised standards version to 3.8.3
+  * Added README.source.
+
+ -- Christian Welzel <gawain@camlann.de>  Thu, 03 Dec 2009 22:00:00 +0100
+
+typo3-dummy (4.3.0~alpha3-1) experimental; urgency=low
+
+  * New upstream release.
+  * Raised standards version to 3.8.1.
+  * Raised compat version to 5.
+  * Added dephelper depends.
+  * Fixed Apache spelling error in description
+  * Moved homepage to header field.
+  * Added init.d script to create /var/run/typo3-dummy (introduces
+    dependency on lsb-base).
+
+ -- Christian Welzel <gawain@camlann.de>  Sun, 07 Jun 2009 20:00:00 +0100
+
+typo3-dummy (4.3.0~alpha2-1) experimental; urgency=low
 
   * New upstream release.
   * New dependencies (copied from typo3-src).
@@ -7,8 +29,31 @@ typo3-dummy (4.3.0~alpha1-1) experimental; urgency=low
   * Added lintian override "non-standard-file-perm" for localconf.php
   * Removed build-stamp from debian/rules.
   * Rewritten long description.
+  * Set some more strictly rights on /var/lib/typo3-dummy.
+  * Integrated dbconfig-common in frontend mode.
+  * Changed alias of the site from typo3/ to cms/.
+  * Added javascript directories to open_basedir.
+  * Added forceCharset, imagefile_ext and enable_typo3temp_db_tracking
+    to default localconf.php
 
- -- Christian Welzel <gawain@camlann.de>  Thu, 20 Nov 2008 23:00:00 +0100
+ -- Christian Welzel <gawain@camlann.de>  Sun, 22 Mar 2009 20:00:00 +0100
+
+typo3-dummy (4.2.5-1) unstable; urgency=high
+
+  * New upstream release.
+    - no changes, only version raise to match typo3-src package
+
+ -- Christian Welzel <gawain@camlann.de>  Mon, 26 Jan 2009 20:00:00 +0100
+
+typo3-dummy (4.2.4-1) unstable; urgency=high
+
+  * New upstream release.
+  * Added /usr/share/javascript/prototype/, /usr/share/javascript/scriptaculous/
+    to open_basedir in apache.conf. (Closes: 512624)
+  * Changed sendmail_path in apache.conf to include parameters "-t -i"
+    (Closes: 512626)
+
+ -- Christian Welzel <gawain@camlann.de>  Thu, 22 Jan 2009 12:00:00 +0100
 
 typo3-dummy (4.2.3-1) unstable; urgency=low
 

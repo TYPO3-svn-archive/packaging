@@ -14,7 +14,6 @@ INSTALLDIR=debian/$(PACKAGENAME)
 DBSRCDIR=usr/share/$(PACKAGENAME)
 DOCROOTDIR=var/lib/$(PACKAGENAME)
 ETCDIR=etc/$(PACKAGENAME)
-TMPDIR=var/run/$(PACKAGENAME)
 
 build: patch-stamp
 
@@ -27,7 +26,7 @@ install: build
 	dh_testdir
 	dh_testroot
 	dh_clean -k
-	dh_installdirs $(DOCROOTDIR) $(ETCDIR) $(TMPDIR)
+	dh_installdirs $(DOCROOTDIR) $(ETCDIR)
 	dh_install index.php clear.gif $(DOCROOTDIR)
 	dh_install fileadmin/ $(DOCROOTDIR)
 	dh_install typo3temp/ $(DOCROOTDIR)
@@ -45,6 +44,7 @@ binary-indep: build install
 	dh_installchangelogs
 	dh_installdocs RELEASE_NOTES.txt README.txt --exclude INSTALL.txt
 	dh_installexamples _.htaccess
+	dh_installinit
 	dh_link \
 		$(DOCROOTDIR)/typo3_src/t3lib $(DOCROOTDIR)/t3lib \
 		$(DOCROOTDIR)/typo3_src/typo3 $(DOCROOTDIR)/typo3 \
@@ -57,9 +57,9 @@ binary-indep: build install
 		/usr/sbin/sendmail  $(DOCROOTDIR)/execdir/sendmail
 	dh_compress
 	dh_fixperms
-	chown -hR www-data:www-data $(INSTALLDIR)/$(TMPDIR)
-	chmod 0750 $(INSTALLDIR)/$(TMPDIR)
 	chown -hR www-data:www-data $(INSTALLDIR)/$(DOCROOTDIR)
+	find $(INSTALLDIR)/$(DOCROOTDIR) -type d -print0 | xargs -0 chmod 0750
+	find $(INSTALLDIR)/$(DOCROOTDIR) -type f -print0 | xargs -0 chmod 0640
 	chown www-data:www-data $(INSTALLDIR)/$(ETCDIR)/localconf.php
 	chmod 600 $(INSTALLDIR)/$(ETCDIR)/localconf.php
 	dh_installdeb

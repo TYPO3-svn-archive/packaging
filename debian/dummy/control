@@ -2,12 +2,13 @@ Source: typo3-dummy
 Section: web
 Priority: optional
 Maintainer: Christian Welzel <gawain@camlann.de>
+Homepage: http://www.typo3.com
 Build-Depends: debhelper (>= 6.0.7), dpatch
-Standards-Version: 3.8.0
+Standards-Version: 3.8.3
 
 Package: typo3-dummy
 Architecture: all
-Depends: exim4 | mail-transport-agent, graphicsmagick, libapache2-mod-php5 | php5-cgi, php5-cli, php5-gd, php5-mysql, php5-xcache, typo3-src-4.3
+Depends: exim4 | mail-transport-agent, dbconfig-common, graphicsmagick, libapache2-mod-php5 | php5-cgi, lsb-base (>= 3.0-6), php5-cli, php5-gd, php5-mysql, php5-xcache, typo3-src-4.3, ${misc:Depends}
 Recommends: catdoc, ghostscript, php5-curl, ppthtml, typo3-database, unrtf, xlhtml, xpdf-utils
 Description: TYPO3 - the enterprise level open source WebCMS (Site structure)
  TYPO3 is a free Open Source content management system for enterprise purposes
@@ -15,22 +16,21 @@ Description: TYPO3 - the enterprise level open source WebCMS (Site structure)
  featuring an accomplished set of ready-made interfaces, functions and modules.
  .
  The most important key features of TYPO3 are:
- * Simple creation of multi language websites with fallback to a default language
- * Handling of multi domain websites within a single page tree
- * Multi user backend editing with complete GUI customisation using an advanced
-   ACL system
- * An integrated workflow management system based on an multi step architecture
-   with editor and supervisor privileges
- * Unlimited redefinition of the rendering process using the build-in TypoScript
-   configuration interface or the plugin API
- * Thousands of plugins are available in the online TYPO3 extension repository
+  * Simple creation of multi language websites with fallback to a default
+    language
+  * Handling of multi domain websites within a single page tree
+  * Multi user backend editing with complete GUI customisation using an
+    advanced ACL system
+  * An integrated workflow management system based on an multi step architecture
+    with editor and supervisor privileges
+  * Unlimited redefinition of the rendering process using the build-in
+    TypoScript configuration interface or the plugin API
+  * Thousands of plugins are available in the online TYPO3 extension repository
  .
  This package provides the basic directory structure to start a new and clean
  website based on TYPO3. This includes a default configuration and some scripts
- to register the site in apache.
+ to register the site in Apache.
  .
  NOTE: This package is intended for single vhost installations. TYPO3 can be
  configured to work with several vhosts and a single src-dir but this package
  can not handle this for you!
- .
-  Homepage: <http://www.typo3.com/>

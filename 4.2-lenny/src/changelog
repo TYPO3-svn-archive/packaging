@@ -1,3 +1,11 @@
+typo3-src (4.2.5-1+lenny3) lenny-security; urgency=high
+
+  * Added patches (backported from 4.2.12) to fix the security issues
+    from "TYPO3-SA-2010-004: Multiple vulnerabilities in TYPO3 Core"
+    (Closes: 571151).
+
+ -- Christian Welzel <gawain@camlann.de>  Wed, 24 Feb 2010 23:00:00 +0100
+
 typo3-src (4.2.5-1+lenny2) stable-security; urgency=high
 
   * Added patches (backported from 4.2.10) to fix the security issues

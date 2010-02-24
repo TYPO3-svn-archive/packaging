@@ -1,0 +1,400 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 05-SecBull-TYPO3-SA-2010-004.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: Fixes 05-SecBull-TYPO3-SA-2010-004
+
+@DPATCH@
+
+diff -Naur typo3_src-4.2.11/index.php typo3_src-4.2.12/index.php
+--- typo3_src-4.2.11/index.php	2010-01-14 12:02:32.000000000 +0100
++++ typo3_src-4.2.12/index.php	2010-02-23 11:46:01.000000000 +0100
+@@ -70,7 +70,7 @@
+ }
+ 
+ if (PATH_tslib=='') {
+-	die('Cannot find tslib/. Please set path by defining $configured_tslib_path in '.basename(PATH_thisScript).'.');
++	die('Cannot find tslib/. Please set path by defining $configured_tslib_path in ' . htmlspecialchars(basename(PATH_thisScript)) . '.');
+ }
+ 
+ // ******************
+diff -Naur typo3_src-4.2.11/t3lib/class.t3lib_fullsearch.php typo3_src-4.2.12/t3lib/class.t3lib_fullsearch.php
+--- typo3_src-4.2.11/t3lib/class.t3lib_fullsearch.php	2010-01-14 12:02:32.000000000 +0100
++++ typo3_src-4.2.12/t3lib/class.t3lib_fullsearch.php	2010-02-23 11:46:01.000000000 +0100
+@@ -324,7 +324,7 @@
+ 				}
+ 			} elseif ($storeControl['REMOVE'])	{
+ 				if ($storeIndex>0)	{
+-					$msg="'".$storeArray[$storeControl['STORE']]."' query entry removed!";
++					$msg="'" . htmlspecialchars($storeArray[$storeControl['STORE']]) . "' query entry removed!";
+ 					unset($storeArray[$storeControl['STORE']]);	// Removing
+ 					$saveStoreArray=1;
+ 				}
+diff -Naur typo3_src-4.2.11/t3lib/class.t3lib_loaddbgroup.php typo3_src-4.2.12/t3lib/class.t3lib_loaddbgroup.php
+--- typo3_src-4.2.11/t3lib/class.t3lib_loaddbgroup.php	2010-01-14 12:02:32.000000000 +0100
++++ typo3_src-4.2.12/t3lib/class.t3lib_loaddbgroup.php	2010-02-23 11:46:01.000000000 +0100
+@@ -284,9 +284,9 @@
+ 			$sorting_field = 'sorting_foreign';
+ 
+ 			if ($this->MM_isMultiTableRelationship)	{
+-				$additionalWhere .= ' AND ( tablenames="'.$this->currentTable.'"';
++				$additionalWhere .= ' AND ( tablenames=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->currentTable, $tableName);
+ 				if ($this->currentTable == $this->MM_isMultiTableRelationship)	{	// be backwards compatible! When allowing more than one table after having previously allowed only one table, this case applies.
+-					$additionalWhere .= ' OR tablenames=""';
++					$additionalWhere .= ' OR tablenames=\'\'';
+ 				}
+ 				$additionalWhere .= ' ) ';
+ 			}
+@@ -354,7 +354,7 @@
+ 
+ 			$additionalWhere_tablenames = '';
+ 			if ($this->MM_is_foreign && $prep)	{
+-				$additionalWhere_tablenames = ' AND tablenames="'.$this->currentTable.'"';
++				$additionalWhere_tablenames = ' AND tablenames=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->currentTable, $MM_tableName);
+ 			}
+ 
+ 			$additionalWhere = '';
+@@ -412,7 +412,7 @@
+ 					$whereClause = $uidLocal_field.'='.$uid.' AND '.$uidForeign_field.'='.$val['id'].
+ 									($this->MM_hasUidField ? ' AND uid='.intval($oldMMs_inclUid[$oldMMs_index][2]) : ''); 	// In principle, selecting on the UID is all we need to do if a uid field is available since that is unique! But as long as it "doesn't hurt" we just add it to the where clause. It should all match up.
+ 					if ($tablename) {
+-						$whereClause .= ' AND tablenames="'.$tablename.'"';
++						$whereClause .= ' AND tablenames=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($tablename, $MM_tableName);
+ 					}
+ 					$GLOBALS['TYPO3_DB']->exec_UPDATEquery($MM_tableName, $whereClause.$additionalWhere, array($sorting_field => $c));
+ 
+@@ -446,7 +446,7 @@
+ 						$elDelete = $oldMMs_inclUid[$oldMM_key];
+ 					} else {
+ 						if(is_array($mmItem)) {
+-							$removeClauses[] = 'tablenames="'.$mmItem[0].'" AND '.$uidForeign_field.'='.$mmItem[1];
++							$removeClauses[] = 'tablenames=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($mmItem[0], $MM_tableName) . ' AND ' . $uidForeign_field . '=' . $mmItem[1];
+ 						} else {
+ 							$removeClauses[] = $uidForeign_field.'='.$mmItem;
+ 						}
+@@ -499,7 +499,7 @@
+ 
+ 			$additionalWhere_tablenames = '';
+ 			if ($this->MM_is_foreign && $prep)	{
+-				$additionalWhere_tablenames = ' AND tablenames="'.$this->currentTable.'"';
++				$additionalWhere_tablenames = ' AND tablenames=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->currentTable, $MM_tableName);
+ 			}
+ 
+ 			$additionalWhere = '';
+diff -Naur typo3_src-4.2.11/t3lib/class.t3lib_querygenerator.php typo3_src-4.2.12/t3lib/class.t3lib_querygenerator.php
+--- typo3_src-4.2.11/t3lib/class.t3lib_querygenerator.php	2010-01-14 12:02:32.000000000 +0100
++++ typo3_src-4.2.12/t3lib/class.t3lib_querygenerator.php	2010-02-23 11:46:01.000000000 +0100
+@@ -976,7 +976,7 @@
+ 	 * @return	[type]		...
+ 	 */
+ 	function formatQ($str)	{
+-		return '<font size="1" face="verdana" color="maroon"><i>'.$str.'</i></font>';
++		return '<font size="1" face="verdana" color="maroon"><i>' . htmlspecialchars($str) . '</i></font>';
+ 	}
+ 
+ 	/**
+diff -Naur typo3_src-4.2.11/typo3/classes/class.workspaceselector.php typo3_src-4.2.12/typo3/classes/class.workspaceselector.php
+--- typo3_src-4.2.11/typo3/classes/class.workspaceselector.php	2010-01-14 12:02:31.000000000 +0100
++++ typo3_src-4.2.12/typo3/classes/class.workspaceselector.php	2010-02-23 11:46:00.000000000 +0100
+@@ -125,7 +125,7 @@
+ 		if(count($customWorkspaces)) {
+ 			foreach($customWorkspaces as $workspace) {
+ 				if($GLOBALS['BE_USER']->checkWorkspace($workspace)) {
+-					$availableWorkspaces[$workspace['uid']] = $workspace['uid'].': '.$workspace['title'];
++					$availableWorkspaces[$workspace['uid']] = $workspace['uid'] . ': ' . htmlspecialchars($workspace['title']);
+ 				}
+ 			}
+ 		}
+diff -Naur typo3_src-4.2.11/typo3/class.file_list.inc typo3_src-4.2.12/typo3/class.file_list.inc
+--- typo3_src-4.2.11/typo3/class.file_list.inc	2010-01-14 12:02:31.000000000 +0100
++++ typo3_src-4.2.12/typo3/class.file_list.inc	2010-02-23 11:46:00.000000000 +0100
+@@ -176,7 +176,7 @@
+ 				if ($this->clickMenus) $otherMarkers['PAGE_ICON'] = $GLOBALS['SOBE']->doc->wrapClickMenuOnIcon($otherMarkers['PAGE_ICON'],$path);
+ 
+ 				$buttons['level_up'] .= $this->linkWrapDir('<img'.t3lib_iconWorks::skinImg($this->backPath,'gfx/i/folder_up.gif','width="18" height="16"').' title="'.$GLOBALS['LANG']->sL('LLL:EXT:lang/locallang_core.php:labels.upOneLevel',1).'" alt="" />',$theFile['path']);
+-				$otherMarkers['TITLE'] .= t3lib_div::fixed_lgd_cs($title,-($this->fixedL+20));	// No HTML specialchars here - HTML like <b> </b> is allowed
++				$otherMarkers['TITLE'] .= t3lib_div::removeXSS(t3lib_div::fixed_lgd_cs($title,-($this->fixedL+20)));	// No HTML specialchars here - HTML like <b> </b> is allowed
+ 
+ 				// this is the root page
+ 			} else {
+diff -Naur typo3_src-4.2.11/typo3/file_newfolder.php typo3_src-4.2.12/typo3/file_newfolder.php
+--- typo3_src-4.2.11/typo3/file_newfolder.php	2010-01-14 12:02:31.000000000 +0100
++++ typo3_src-4.2.12/typo3/file_newfolder.php	2010-02-23 11:46:00.000000000 +0100
+@@ -143,7 +143,7 @@
+ 		$this->shortPath = substr($this->target,strlen($GLOBALS['FILEMOUNTS'][$key]['path']));
+ 
+ 			// Setting title:
+-		$this->title = $this->icon.$GLOBALS['FILEMOUNTS'][$key]['name'].': '.$this->shortPath;
++		$this->title = $this->icon . htmlspecialchars($GLOBALS['FILEMOUNTS'][$key]['name']) . ': ' . $this->shortPath;
+ 
+ 			// Setting template object
+ 		$this->doc = t3lib_div::makeInstance('template');
+diff -Naur typo3_src-4.2.11/typo3/file_rename.php typo3_src-4.2.12/typo3/file_rename.php
+--- typo3_src-4.2.11/typo3/file_rename.php	2010-01-14 12:02:31.000000000 +0100
++++ typo3_src-4.2.12/typo3/file_rename.php	2010-02-23 11:46:00.000000000 +0100
+@@ -140,7 +140,7 @@
+ 		$this->shortPath = substr($this->target,strlen($GLOBALS['FILEMOUNTS'][$key]['path']));
+ 
+ 			// Setting title:
+-		$this->title = $this->icon.$GLOBALS['FILEMOUNTS'][$key]['name'].': '.$this->shortPath;
++		$this->title = $this->icon . htmlspecialchars($GLOBALS['FILEMOUNTS'][$key]['name']) . ': '.$this->shortPath;
+ 
+ 			// Setting template object
+ 		$this->doc = t3lib_div::makeInstance('template');
+diff -Naur typo3_src-4.2.11/typo3/file_upload.php typo3_src-4.2.12/typo3/file_upload.php
+--- typo3_src-4.2.11/typo3/file_upload.php	2010-01-14 12:02:31.000000000 +0100
++++ typo3_src-4.2.12/typo3/file_upload.php	2010-02-23 11:46:00.000000000 +0100
+@@ -152,7 +152,7 @@
+ 		$this->shortPath = substr($this->target,strlen($GLOBALS['FILEMOUNTS'][$key]['path']));
+ 
+ 			// Setting title:
+-		$this->title = $this->icon.$GLOBALS['FILEMOUNTS'][$key]['name'].': '.$this->shortPath;
++		$this->title = $this->icon . htmlspecialchars($GLOBALS['FILEMOUNTS'][$key]['name']) . ': ' . $this->shortPath;
+ 
+ 			// Setting template object
+ 		$this->doc = t3lib_div::makeInstance('template');
+diff -Naur typo3_src-4.2.11/typo3/mod/user/ws/class.wslib_gui.php typo3_src-4.2.12/typo3/mod/user/ws/class.wslib_gui.php
+--- typo3_src-4.2.11/typo3/mod/user/ws/class.wslib_gui.php	2010-01-14 12:02:32.000000000 +0100
++++ typo3_src-4.2.12/typo3/mod/user/ws/class.wslib_gui.php	2010-02-23 11:46:01.000000000 +0100
+@@ -838,7 +838,7 @@
+ 					$text = $LANG->getLL('stage_undefined');
+ 					break;
+ 			}
+-			$text = t3lib_BEfunc::datetime($dat['tstamp']).': ' . sprintf($text, $username);
++			$text = t3lib_BEfunc::datetime($dat['tstamp']).': ' . sprintf($text, htmlspecialchars($username));
+ 			$text.= ($data['comment']?'<br/>' . $LANG->getLL('stage_label_user_comment'). ' <em>'.htmlspecialchars($data['comment']).'</em>':'');
+ 
+ 			$entry[] = $text;
+diff -Naur typo3_src-4.2.11/typo3/mod/user/ws/index.php typo3_src-4.2.12/typo3/mod/user/ws/index.php
+--- typo3_src-4.2.11/typo3/mod/user/ws/index.php	2010-01-14 12:02:32.000000000 +0100
++++ typo3_src-4.2.12/typo3/mod/user/ws/index.php	2010-02-23 11:46:01.000000000 +0100
+@@ -618,8 +618,8 @@
+ 			$content .= '</td>';
+ 
+ 				// row #1, column #4 and 5: title and description
+-			$content .= '<td nowrap="nowrap">' . $wksp['title'] . '</td>' .
+-						'<td>' . nl2br($wksp['description']) . '</td>';
++			$content .= '<td nowrap="nowrap">' . htmlspecialchars($wksp['title']) . '</td>' .
++						'<td>' . nl2br(htmlspecialchars($wksp['description'])) . '</td>';
+ 			$content .= '</tr>';
+ 
+ 				// row #2, column #1 and #2
+@@ -892,7 +892,7 @@
+ 					$tag0 = $tag1 = '';
+ 				}
+ 				$content_array[] = $this->doc->wrapClickMenuOnIcon(t3lib_iconWorks::getIconImage('be_users', $uid, $GLOBALS['BACK_PATH'], ' align="middle" alt="UID: ' . $uid . '"'), 'be_users', $uid, 2).
+-					$tag0 . $user['username'] . $tag1;
++					$tag0 . htmlspecialchars($user['username']) . $tag1;
+ 			}
+ 		}
+ 		return implode('<br />', $content_array);
+@@ -931,7 +931,7 @@
+ 							$tag0 = $tag1 = '';
+ 						}
+ 						$content_array[] = $this->doc->wrapClickMenuOnIcon(t3lib_iconWorks::getIconImage($table, $this->be_user_Array[$id], $GLOBALS['BACK_PATH'], ' align="middle" alt="UID: ' . $id . '"'), $table, $id, 2) .
+-											$tag0 . $this->be_user_Array_full[$id]['username'] . $tag1;
++											$tag0 . htmlspecialchars($this->be_user_Array_full[$id]['username']) . $tag1;
+ 					}
+ 					else {
+ 						// group
+@@ -953,7 +953,7 @@
+ 						$tag0 = $tag1 = '';
+ 					}
+ 					$content_array[] = t3lib_iconWorks::getIconImage('be_users', $this->be_user_Array[$id], $GLOBALS['BACK_PATH'], ' align="middle" alt="UID: ' . $id . '"') .
+-										$tag0 . $this->be_user_Array_full[$userUID]['username'] . $tag1;
++										$tag0 . htmlspecialchars($this->be_user_Array_full[$userUID]['username']) . $tag1;
+ 				}
+ 			}
+ 			sort($content_array);
+diff -Naur typo3_src-4.2.11/typo3/mod/web/perm/index.php typo3_src-4.2.12/typo3/mod/web/perm/index.php
+--- typo3_src-4.2.11/typo3/mod/web/perm/index.php	2010-01-14 12:02:32.000000000 +0100
++++ typo3_src-4.2.12/typo3/mod/web/perm/index.php	2010-02-23 11:46:01.000000000 +0100
+@@ -608,7 +608,7 @@
+ 				<tr>
+ 					<td class="bgColor2" colspan="2">&nbsp;</td>
+ 					<td class="bgColor2"><img'.t3lib_iconWorks::skinImg($BACK_PATH,'gfx/line.gif','width="5" height="16"').' alt="" /></td>
+-					<td class="bgColor2" align="center" nowrap="nowrap"><b>'.$LANG->getLL('User',1).':</b> '.$BE_USER->user['username'].'</td>
++					<td class="bgColor2" align="center" nowrap="nowrap"><b>'.$LANG->getLL('User',1).':</b> ' . htmlspecialchars($BE_USER->user['username']) . '</td>
+ 					'.(!$BE_USER->isAdmin()?'<td class="bgColor2"><img'.t3lib_iconWorks::skinImg($BACK_PATH,'gfx/line.gif','width="5" height="16"').' alt="" /></td>
+ 					<td class="bgColor2" align="center"><b>'.$LANG->getLL('EditLock',1).'</b></td>':'').'
+ 				</tr>';
+diff -Naur typo3_src-4.2.11/typo3/sysext/cms/tslib/class.tslib_feuserauth.php typo3_src-4.2.12/typo3/sysext/cms/tslib/class.tslib_feuserauth.php
+--- typo3_src-4.2.11/typo3/sysext/cms/tslib/class.tslib_feuserauth.php	2010-01-14 12:02:32.000000000 +0100
++++ typo3_src-4.2.12/typo3/sysext/cms/tslib/class.tslib_feuserauth.php	2010-02-23 11:46:01.000000000 +0100
+@@ -461,8 +461,10 @@
+ 	 */
+ 	function record_registration($recs,$maxSizeOfSessionData=0)	{
+ 
+-			// Storing value ONLY if there is a confirmed cookie set (->cookieID), otherwise a shellscript could easily be spamming the fe_sessions table with bogus content and thus bloat the database
+-		if (!$maxSizeOfSessionData || $this->cookieId===$this->id)	{
++			// Storing value ONLY if there is a confirmed cookie set (->cookieID), 
++			// otherwise a shellscript could easily be spamming the fe_sessions table
++			// with bogus content and thus bloat the database
++		if (!$maxSizeOfSessionData || $this->cookieId) {
+ 			if ($recs['clear_all'])	{
+ 				$this->setKey('ses', 'recs', array());
+ 			}
+diff -Naur typo3_src-4.2.11/typo3/sysext/indexed_search/modfunc1/class.tx_indexedsearch_modfunc1.php typo3_src-4.2.12/typo3/sysext/indexed_search/modfunc1/class.tx_indexedsearch_modfunc1.php
+--- typo3_src-4.2.11/typo3/sysext/indexed_search/modfunc1/class.tx_indexedsearch_modfunc1.php	2010-01-14 12:02:32.000000000 +0100
++++ typo3_src-4.2.12/typo3/sysext/indexed_search/modfunc1/class.tx_indexedsearch_modfunc1.php	2010-02-23 11:46:01.000000000 +0100
+@@ -441,10 +441,13 @@
+ 
+ 					// cHash parameters:
+ 				$arr = unserialize($row['cHashParams']);
+-				if (is_array($arr))		{
+-					$theCHash = $arr['cHash'];
+-					unset($arr['cHash']);
++				if (!is_array($arr)) {
++					$arr = array(
++						'cHash' => $GLOBALS['LANG']->sL('LLL:EXT:lang/locallang_general.xml:LGL.error', true)
++					);
+ 				}
++				$theCHash = $arr['cHash'];
++				unset($arr['cHash']);
+ 
+ 				if ($row['item_type'])	{	// pdf...
+ 					$lines[] = '<td>'.($arr['key'] ? 'Page '.$arr['key'] : '').'&nbsp;</td>';
+diff -Naur typo3_src-4.2.11/typo3/sysext/lang/locallang_general.xml typo3_src-4.2.12/typo3/sysext/lang/locallang_general.xml
+--- typo3_src-4.2.11/typo3/sysext/lang/locallang_general.xml	2010-01-14 12:02:31.000000000 +0100
++++ typo3_src-4.2.12/typo3/sysext/lang/locallang_general.xml	2010-02-23 11:46:01.000000000 +0100
+@@ -57,6 +57,7 @@
+ 			<label index="LGL.l18n_parent">Transl.Orig:</label>
+ 			<label index="LGL.allLanguages">[All]</label>
+ 			<label index="LGL.versionLabel">Versioning Label:</label>
++			<label index="LGL.error">Error!</label>
+ 		</languageKey>
+ 	</data>
+ </T3locallang>
+\ Kein Zeilenumbruch am Dateiende.
+diff -Naur typo3_src-4.2.11/typo3/sysext/sys_action/class.tx_sysaction.php typo3_src-4.2.12/typo3/sysext/sys_action/class.tx_sysaction.php
+--- typo3_src-4.2.11/typo3/sysext/sys_action/class.tx_sysaction.php	2010-01-14 12:02:31.000000000 +0100
++++ typo3_src-4.2.12/typo3/sysext/sys_action/class.tx_sysaction.php	2010-02-23 11:46:00.000000000 +0100
+@@ -78,7 +78,7 @@
+ 			if($actionRow = $GLOBALS['TYPO3_DB']->sql_fetch_assoc($res))	{
+ 
+ 					// Action header:
+-				$header = t3lib_iconworks::getIconImage("sys_action",$actionRow,$this->backPath,'hspace="2" class="absmiddle"').'<b>'.$actionRow["title"].'</b>';
++				$header = t3lib_iconworks::getIconImage("sys_action",$actionRow,$this->backPath,'hspace="2" class="absmiddle"').'<b>'.htmlspecialchars($actionRow["title"]).'</b>';
+ 				$out.='<table border=0 cellpadding=0 cellspacing=1 width=100%>
+ 					<tr><td colspan=2 class="bgColor5">'.fw($header).'</td></tr>
+ 					<tr>
+@@ -87,7 +87,7 @@
+ 					</tr>
+ 					<tr>
+ 						<td width=1% valign=top class="bgColor4">'.fw($LANG->sL(t3lib_BEfunc::getItemLabel("sys_action","description"))."&nbsp;").'</td>
+-						<td valign=top class="bgColor4">'.fw(nl2br($actionRow["description"])).'</td>
++						<td valign=top class="bgColor4">'.fw(nl2br(htmlspecialchars($actionRow["description"]))).'</td>
+ 					</tr>';
+ 				$out.='</table>';
+ 				$theCode = $this->pObj->doc->section("",$out,0,1);
+@@ -110,7 +110,7 @@
+ 								$userRecord=t3lib_BEfunc::getRecord("be_users",$nId);
+ 							}
+ 							if (t3lib_div::_GP("be_users_uid"))	{
+-								$userRecord=t3lib_BEfunc::getRecord("be_users",t3lib_div::_GP("be_users_uid"));
++								$userRecord = t3lib_BEfunc::getRecord('be_users', t3lib_div::_GP('be_users_uid'), '*', ' AND cruser_id='.intval($this->BE_USER->user['uid']).' AND createdByAction='.intval($actionRow['uid']));
+ 							}
+ 							if (!is_array($userRecord))	{
+ 								$userRecord=array();
+@@ -278,7 +278,7 @@
+ 		$res = $this->getActionResPointer();
+ 		$lines=array();
+ 		while($actionRow = $GLOBALS['TYPO3_DB']->sql_fetch_assoc($res))	{
+-			$lines[]='<nobr>'.t3lib_iconworks::getIconImage("sys_action",$actionRow,$this->backPath,'hspace="2" align="top"').$this->action_link($this->fixed_lgd($actionRow["title"]),$actionRow["uid"],$actionRow["description"]).'</nobr><BR>';
++			$lines[]='<nobr>'.t3lib_iconworks::getIconImage("sys_action",$actionRow,$this->backPath,'hspace="2" align="top"').$this->action_link($this->fixed_lgd(htmlspecialchars($actionRow["title"])),$actionRow["uid"],htmlspecialchars($actionRow["description"])).'</nobr><BR>';
+ 		}
+ 		$out = implode("",$lines);
+ 		return $out;
+diff -Naur typo3_src-4.2.11/typo3/sysext/taskcenter/task/index.php typo3_src-4.2.12/typo3/sysext/taskcenter/task/index.php
+--- typo3_src-4.2.11/typo3/sysext/taskcenter/task/index.php	2010-01-14 12:02:31.000000000 +0100
++++ typo3_src-4.2.12/typo3/sysext/taskcenter/task/index.php	2010-02-23 11:46:01.000000000 +0100
+@@ -161,9 +161,8 @@
+ 	 * @return	string		header in the left side (HTML)
+ 	 */
+ 	function getleftHeader() {
+-		$name = $GLOBALS['BE_USER']->user['realName']?$GLOBALS['BE_USER']->user['realName']:
+-		$GLOBALS['BE_USER']->user['username'];
+-		return '<h1>TYPO3 taskcenter <br />'.$name.'</h1>';
++		$name = $GLOBALS['BE_USER']->user['realName'] ? $GLOBALS['BE_USER']->user['realName'] : $GLOBALS['BE_USER']->user['username'];
++		return '<h1>TYPO3 taskcenter <br />' . htmlspecialchars($name) . '</h1>';
+ 	}
+ 
+ 	/**
+diff -Naur typo3_src-4.2.11/typo3/sysext/tstemplate/ts/index.php typo3_src-4.2.12/typo3/sysext/tstemplate/ts/index.php
+--- typo3_src-4.2.11/typo3/sysext/tstemplate/ts/index.php	2010-01-14 12:02:32.000000000 +0100
++++ typo3_src-4.2.12/typo3/sysext/tstemplate/ts/index.php	2010-02-23 11:46:01.000000000 +0100
+@@ -352,7 +352,7 @@
+ 		$first = $tmpl->ext_prevPageWithTemplate($this->id,$this->perms_clause);
+ 		if ($first)	{
+ 			$theOutput.=$this->doc->spacer(10);
+-			$theOutput.=$this->doc->section("Go to closest page with template",sprintf("Closest template is on page '%s' (uid %s).<BR><BR>%s<strong>Click here to go.</strong>%s",$first["title"],$first["uid"],'<a href="index.php?id='.$first["uid"].'">','</a>'),0,1);
++			$theOutput.=$this->doc->section("Go to closest page with template",sprintf("Closest template is on page '%s' (uid %s).<BR><BR>%s<strong>Click here to go.</strong>%s",htmlspecialchars($first["title"]),$first["uid"],'<a href="index.php?id='.$first["uid"].'">','</a>'),0,1);
+ 		}
+ 		return $theOutput;
+ 	}
+@@ -431,7 +431,7 @@
+ 		if (!$rlArr[0]["uid"])		array_shift($rlArr);
+ 
+ 		$cEl = current($rlArr);
+-		$pArray[$cEl["uid"]]=$cEl["title"];
++		$pArray[$cEl["uid"]]=htmlspecialchars($cEl["title"]);
+ 		array_shift($rlArr);
+ 		if (count($rlArr))	{
+ 			if (!isset($pArray[$cEl["uid"]."."]))	$pArray[$cEl["uid"]."."]=array();
+diff -Naur typo3_src-4.2.11/typo3/sysext/tstemplate_objbrowser/class.tx_tstemplateobjbrowser.php typo3_src-4.2.12/typo3/sysext/tstemplate_objbrowser/class.tx_tstemplateobjbrowser.php
+--- typo3_src-4.2.11/typo3/sysext/tstemplate_objbrowser/class.tx_tstemplateobjbrowser.php	2010-01-14 12:02:32.000000000 +0100
++++ typo3_src-4.2.12/typo3/sysext/tstemplate_objbrowser/class.tx_tstemplateobjbrowser.php	2010-02-23 11:46:01.000000000 +0100
+@@ -327,8 +327,8 @@
+ 			if ($existTemplate)	{
+ 					// Value
+ 				$out = '';
+-				$out.= $this->pObj->sObj.' =<br />';
+-				$out.='<input type="Text" name="data['.$this->pObj->sObj.'][value]" value="'.htmlspecialchars($theSetupValue).'"'.$GLOBALS["TBE_TEMPLATE"]->formWidth(40).'>';
++				$out.= htmlspecialchars($this->pObj->sObj).' =<br />';
++				$out.='<input type="Text" name="data['.htmlspecialchars($this->pObj->sObj).'][value]" value="'.htmlspecialchars($theSetupValue).'"'.$GLOBALS["TBE_TEMPLATE"]->formWidth(40).'>';
+ 				$out.='<input type="Submit" name="update_value" value="Update">';
+ 				$theOutput.=$this->pObj->doc->section("Edit object/property value:",$out,0,0);
+ 
+@@ -337,14 +337,14 @@
+ 					$url=$BACK_PATH."wizard_tsconfig.php?mode=tsref&onlyProperty=1";
+ 					$params=array();
+ 					$params["formName"]="editForm";
+-					$params["itemName"]="data[".$this->pObj->sObj."][name]";
+-					$params["itemValue"]="data[".$this->pObj->sObj."][propertyValue]";
++					$params["itemName"]="data[".htmlspecialchars($this->pObj->sObj)."][name]";
++					$params["itemValue"]="data[".htmlspecialchars($this->pObj->sObj)."][propertyValue]";
+ 					$TSicon='<a href="#" onClick="vHWin=window.open(\''.$url.t3lib_div::implodeArrayForUrl("",array("P"=>$params)).'\',\'popUp'.$md5ID.'\',\'height=500,width=780,status=0,menubar=0,scrollbars=1\');vHWin.focus();return false;"><img src="'.$BACK_PATH.'gfx/wizard_tsconfig_s.gif" width="22" height="16" border="0" class="absmiddle" hspace=2 title="TSref reference"></a>';
+ 				} else $TSicon="";
+ 				$out="";
+-				$out="<nobr>".$this->pObj->sObj.".";
+-				$out.='<input type="Text" name="data['.$this->pObj->sObj.'][name]"'.$GLOBALS["TBE_TEMPLATE"]->formWidth(20).'>'.$TSicon.' = </nobr><BR>';
+-				$out.='<input type="Text" name="data['.$this->pObj->sObj.'][propertyValue]"'.$GLOBALS["TBE_TEMPLATE"]->formWidth(40).'>';
++				$out="<nobr>".htmlspecialchars($this->pObj->sObj).".";
++				$out.='<input type="Text" name="data['.htmlspecialchars($this->pObj->sObj).'][name]"'.$GLOBALS["TBE_TEMPLATE"]->formWidth(20).'>'.$TSicon.' = </nobr><BR>';
++				$out.='<input type="Text" name="data['.htmlspecialchars($this->pObj->sObj).'][propertyValue]"'.$GLOBALS["TBE_TEMPLATE"]->formWidth(40).'>';
+ 				$out.='<input type="Submit" name="add_property" value="Add">';
+ 
+ 
+@@ -354,8 +354,8 @@
+ 
+ 					// clear
+ 				$out="";
+-				$out=$this->pObj->sObj." <b>CLEAR?</b> &nbsp;&nbsp;";
+-				$out.='<input type="Checkbox" name="data['.$this->pObj->sObj.'][clearValue]" value="1">';
++				$out=htmlspecialchars($this->pObj->sObj)." <b>CLEAR?</b> &nbsp;&nbsp;";
++				$out.='<input type="Checkbox" name="data['.htmlspecialchars($this->pObj->sObj).'][clearValue]" value="1">';
+ 				$out.='<input type="Submit" name="clear_object" value="Clear">';
+ 				$theOutput.=$this->pObj->doc->spacer(20);
+ 				$theOutput.=$this->pObj->doc->section("Clear object:",$out,0,0);
+@@ -368,10 +368,10 @@
+ 			$out='';
+ 			if (!$this->pObj->MOD_SETTINGS['ts_browser_TLKeys_'.$bType][$this->pObj->sObj])	{
+ 				if (count($theSetup))	{
+-					$out = '<a href="index.php?id='.$this->pObj->id.'&addKey['.$this->pObj->sObj.']=1&SET[ts_browser_toplevel_'.$bType.']='.rawurlencode($this->pObj->sObj).'"><b>Add key</b></a> "'.$this->pObj->sObj.'" to Object List (OL)';
++					$out = '<a href="index.php?id='.$this->pObj->id.'&addKey['.rawurlencode($this->pObj->sObj).']=1&SET[ts_browser_toplevel_'.$bType.']='.rawurlencode($this->pObj->sObj).'"><b>Add key</b></a> "'.htmlspecialchars($this->pObj->sObj).'" to Object List (OL)';
+ 				}
+ 			} else {
+-				$out = '<a href="index.php?id='.$this->pObj->id.'&addKey['.$this->pObj->sObj.']=0&SET[ts_browser_toplevel_'.$bType.']=0"><b>Remove key</b></a> "'.$this->pObj->sObj.'" from Object List (OL)';
++				$out = '<a href="index.php?id='.$this->pObj->id.'&addKey['.rawurlencode($this->pObj->sObj).']=0&SET[ts_browser_toplevel_'.$bType.']=0"><b>Remove key</b></a> "'.htmlspecialchars($this->pObj->sObj).'" from Object List (OL)';
+ 			}
+ 			if ($out)	{
+ 				$theOutput.=$this->pObj->doc->divider(5);

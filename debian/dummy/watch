@@ -5,3 +5,4 @@ version=3
 # to automatically use the qa.debian.org redirector, avoiding SF's
 # difficult mirror system.
 http://sf.net/typo3/typo3-(.*)\.tar\.gz
+

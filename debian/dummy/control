@@ -3,13 +3,13 @@ Section: web
 Priority: optional
 Maintainer: Christian Welzel <gawain@camlann.de>
 Homepage: http://www.typo3.com
-Build-Depends: debhelper (>= 6.0.7), dpatch
-Standards-Version: 3.8.3
+Build-Depends: debhelper (>= 6.0.7), po-debconf
+Standards-Version: 3.8.4
 
 Package: typo3-dummy
 Architecture: all
-Depends: exim4 | mail-transport-agent, dbconfig-common, graphicsmagick, libapache2-mod-php5 | php5-cgi, lsb-base (>= 3.0-6), php5-cli, php5-gd, php5-mysql, php5-xcache, typo3-src-4.3, ${misc:Depends}
-Recommends: catdoc, ghostscript, php5-curl, ppthtml, typo3-database, unrtf, xlhtml, xpdf-utils
+Depends: exim4 | mail-transport-agent, dbconfig-common, debconf, graphicsmagick, lsb-base (>= 3.0-6), php5, php5-cli, php5-gd, php5-mysql, php5-xcache, typo3-src-4.3, ${misc:Depends}
+Recommends: catdoc, ghostscript, memcached, php5-curl, php5-memcache, ppthtml, typo3-database, unrtf, xlhtml, xpdf-utils
 Description: TYPO3 - the enterprise level open source WebCMS (Site structure)
  TYPO3 is a free Open Source content management system for enterprise purposes
  on the web and in intranets. It offers full flexibility and extendability while
@@ -34,3 +34,4 @@ Description: TYPO3 - the enterprise level open source WebCMS (Site structure)
  NOTE: This package is intended for single vhost installations. TYPO3 can be
  configured to work with several vhosts and a single src-dir but this package
  can not handle this for you!
+

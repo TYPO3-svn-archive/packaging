@@ -1,3 +1,37 @@
+typo3-dummy (4.3.0-3) unstable; urgency=low
+
+  * Duplicated the apache.conf and adopted to vhost and directory
+    configurations.
+  * Raised standards version to 3.8.4.
+  * Removed dpatch system.
+  * Added file debian/source/format with "3.0 (quilt)" as content.
+  * Moved debian/patches/00list to debian/patches/series, modified it.
+  * Moved debian/patches/*.dpatch to debian/patches/*.patch, removed
+    dpatch specific code.
+  * Merged postrm and typo3-dummy.postrm to typo3-dummy.postrm.
+  * Merged postinst and typo3-dummy.postinst to typo3-dummy.postinst.
+  * Moved apache-*.conf links from conf.d/ to sites-available/.
+  * Added debconf to configure the way of inclusion into apache.
+  * Removed apache-ssl and apache-perl from postinst and postrm.
+  * Changed dependency "libapache2-mod-php5 | php5-cgi" to "php5".
+  * Some adjustments to README.debian.
+  * Removed README.source.
+
+ -- Christian Welzel <gawain@camlann.de>  Thu, 26 Apr 2010 22:00:00 +0100
+
+typo3-dummy (4.3.0-2) unstable; urgency=low
+
+  * Enable mod_rewrite in the post install script.
+  * Added cronscript for scheduler extension.
+  * Added memcached and php5-memcache to recommendations.
+  * Added basic configuration of the new caching framework to 
+    patches/01-defaults.dpatch.
+    - set $TYPO3_CONF_VARS['SYS']['useCachingFramework'] to '1' in 
+      /etc/typo3-dummy/localconf.php to enable the framework.
+  * Added some documentation to README.debian.
+
+ -- Christian Welzel <gawain@camlann.de>  Sat, 05 Dec 2009 22:00:00 +0100
+
 typo3-dummy (4.3.0-1) unstable; urgency=low
 
   * New upstream release.
@@ -244,3 +278,4 @@ typo3-db-dummy (3.7.0-1) unstable; urgency=low
   * Initial Release.
 
  -- Christian Leutloff <leutloff@debian.org>  Tue,  2 Nov 2004 07:40:23 +0100
+

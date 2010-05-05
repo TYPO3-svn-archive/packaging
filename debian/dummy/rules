@@ -3,8 +3,6 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-include /usr/share/dpatch/dpatch.make
-
 SHORTNAME=dummy
 PACKAGENAME=typo3-$(SHORTNAME)
 # set link to the typo3 source dir
@@ -15,12 +13,11 @@ DBSRCDIR=usr/share/$(PACKAGENAME)
 DOCROOTDIR=var/lib/$(PACKAGENAME)
 ETCDIR=etc/$(PACKAGENAME)
 
-build: patch-stamp
-
-clean: unpatch
+clean:
 	dh_testdir
 	dh_testroot
 	dh_clean
+	debconf-updatepo
 
 install: build
 	dh_testdir
@@ -33,7 +30,8 @@ install: build
 	dh_install uploads/ $(DOCROOTDIR)
 	dh_install typo3conf/ $(DOCROOTDIR)
 	dh_install typo3conf/localconf.php $(ETCDIR)
-	dh_install debian/apache.conf $(ETCDIR)
+	dh_install debian/apache-directory.conf $(ETCDIR)
+	dh_install debian/apache-vhost.conf $(ETCDIR)
 
 # Build architecture-independent files here.
 binary-indep: build install
@@ -42,6 +40,7 @@ binary-indep: build install
 	dh_lintian
 	dh_installdebconf
 	dh_installchangelogs
+	dh_installcron
 	dh_installdocs RELEASE_NOTES.txt README.txt --exclude INSTALL.txt
 	dh_installexamples _.htaccess
 	dh_installinit
@@ -73,3 +72,4 @@ binary-arch: build install
 
 binary: binary-indep binary-arch
 .PHONY: build clean binary-indep binary-arch binary install
+

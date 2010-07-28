@@ -1,3 +1,26 @@
+typo3-dummy (4.3.0-4) unstable; urgency=low
+
+  [ Christian Welzel ]
+
+  * Raised standards version to 3.9.0
+  * Added "set names utf-8" to localconf.php.
+
+  [ Christian Perrier ]
+
+  * Debconf templates and debian/control reviewed by the debian-l10n-
+    english team as part of the Smith review project. Closes: #586285
+  * [Debconf translation updates]
+  * French (David Prévot).  Closes: #586564
+  * Swedish (Martin Bagge).  Closes: #586826
+  * Russian (Yuri Kozlov).  Closes: #586939
+  * Portuguese (Américo Monteiro).  Closes: #587070
+  * Czech (Michal Simunek).  Closes: #587246
+  * German (Chris Leick).  Closes: #587490
+  * Danish (Joe Hansen).  Closes: #588366
+  * Spanish (Francisco Javier Cuadrado).  Closes: #588424
+
+ -- Christian Welzel <gawain@camlann.de>  Wed, 14 Jul 2010 22:00:00 +0100
+
 typo3-dummy (4.3.0-3) unstable; urgency=low
 
   * Duplicated the apache.conf and adopted to vhost and directory

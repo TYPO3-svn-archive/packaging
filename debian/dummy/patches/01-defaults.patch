@@ -2,11 +2,9 @@
 ##
 ## DP: provide some default values for Debian systems
 
-Index: typo3-dummy-4.3.0/typo3conf/localconf.php
-===================================================================
---- typo3-dummy-4.3.0.orig/typo3conf/localconf.php	2010-05-04 21:27:46.000000000 +0200
-+++ typo3-dummy-4.3.0/typo3conf/localconf.php	2010-05-04 23:35:47.000000000 +0200
-@@ -8,6 +8,123 @@
+--- typo3-dummy-4.3.0.orig/typo3conf/localconf.php
++++ typo3-dummy-4.3.0/typo3conf/localconf.php
+@@ -8,6 +8,126 @@
  
  $typo_db_extTableDef_script = 'extTables.php';
  
@@ -124,6 +122,9 @@ Index: typo3-dummy-4.3.0/typo3conf/localconf.php
 +
 +// Force TYPO3 to use utf-8 in frontend and backend
 +$TYPO3_CONF_VARS['BE']['forceCharset'] = 'utf-8';
++
++// Let TYPO3 init mysql to use utf-8 connections
++$TYPO3_CONF_VARS['SYS']['setDBinit'] = 'SET NAMES utf8;';
 +
 +// The list of file extensions to be considered as images
 +$TYPO3_CONF_VARS['GFX']['imagefile_ext'] = 'gif,jpg,jpeg,tif,bmp,pcx,tga,png,swf,pdf,ai';

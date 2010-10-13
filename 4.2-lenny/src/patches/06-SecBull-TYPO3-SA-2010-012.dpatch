@@ -1,0 +1,1417 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 06-SecBull-TYPO3-SA-2010-012.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: Fixes SecBull-TYPO3-SA-2010-012 (taken from svn tag TYPO3_4-2-13
+## DP: revisions 8315:8437)
+
+@DPATCH@
+
+Index: t3lib/config_default.php
+===================================================================
+--- typo3_src-4.2.12/t3lib/config_default.php	(Revision 8247)
++++ typo3_src-4.2.13/t3lib/config_default.php	(Revision 8437)
+@@ -17,10 +17,10 @@
+ if (!defined ('PATH_typo3conf')) 	die ('The configuration path was not properly defined!');
+ 
+ //Security related constant: Default value of fileDenyPattern
+-define('FILE_DENY_PATTERN_DEFAULT', '\.php[3-6]?(\..*)?$|^\.htaccess$');
++define('FILE_DENY_PATTERN_DEFAULT', '\.(php[3-6]?|phpsh|phtml)(\..*)?$|^\.htaccess$');
+ 
+ //Security related constant: Comma separated list of file extensions that should be registered as php script file extensions
+-define('PHP_EXTENSIONS_DEFAULT', 'php,php3,php4,php5,php6,phpsh,inc');
++define('PHP_EXTENSIONS_DEFAULT', 'php,php3,php4,php5,php6,phpsh,inc,phtml');
+ 
+ $TYPO3_CONF_VARS = Array(
+ 	'GFX' => array(		// Configuration of the image processing features in TYPO3. 'IM' and 'GD' are short for ImageMagick and  GD library respectively.
+Index: t3lib/class.t3lib_tceforms.php
+===================================================================
+--- typo3_src-4.2.12/t3lib/class.t3lib_tceforms.php	(Revision 8247)
++++ typo3_src-4.2.13/t3lib/class.t3lib_tceforms.php	(Revision 8437)
+@@ -3689,6 +3689,7 @@
+ 									$params['formName'] = $this->formName;
+ 									$params['itemName'] = $itemName;
+ 									$params['fieldChangeFunc'] = $fieldChangeFunc;
++									$params['fieldChangeFuncHash'] = t3lib_div::hmac(serialize($fieldChangeFunc));
+ 
+ 									switch((string)$wConf['type'])	{
+ 										case 'popup':
+Index: t3lib/class.t3lib_befunc.php
+===================================================================
+--- typo3_src-4.2.12/t3lib/class.t3lib_befunc.php	(Revision 8247)
++++ typo3_src-4.2.13/t3lib/class.t3lib_befunc.php	(Revision 8437)
+@@ -834,7 +834,11 @@
+ 			// Traverse languages
+ 		$res = $GLOBALS['TYPO3_DB']->exec_SELECTquery('uid,title,flag', 'sys_language', 'pid=0'.t3lib_BEfunc::deleteClause('sys_language'));
+ 		while($row = $GLOBALS['TYPO3_DB']->sql_fetch_assoc($res)) {
+-			$sysLanguages[] = array($row['title'].' ['.$row['uid'].']', $row['uid'], ($row['flag'] ? 'flags/'.$row['flag'] : ''));
++			$sysLanguages[] = array(
++				htmlspecialchars($row['title']) . ' [' . $row['uid'] . ']',
++				$row['uid'],
++				($row['flag'] ? 'flags/' . $row['flag'] : '')
++			);
+ 		}
+ 		$GLOBALS['TYPO3_DB']->sql_free_result($res);
+ 
+@@ -2992,7 +2996,11 @@
+ 			while(list($kk, $vv) = each($fTWHERE_parts)) {
+ 				if ($kk) {
+ 					$fTWHERE_subpart = explode('###', $vv, 2);
+-					$fTWHERE_parts[$kk] = $TSconfig['_THIS_ROW'][$fTWHERE_subpart[0]].$fTWHERE_subpart[1];
++					if (substr($fTWHERE_parts[0], -1) === '\'' && $fTWHERE_subpart[1]{0} === '\'') {
++						$fTWHERE_parts[$kk] = $GLOBALS['TYPO3_DB']->quoteStr($TSconfig['_THIS_ROW'][$fTWHERE_subpart[0]], $foreign_table) . $fTWHERE_subpart[1];
++					} else {
++						$fTWHERE_parts[$kk] = $GLOBALS['TYPO3_DB']->fullQuoteStr($TSconfig['_THIS_ROW'][$fTWHERE_subpart[0]], $foreign_table) . $fTWHERE_subpart[1];
++					}
+ 				}
+ 			}
+ 			$fTWHERE = implode('', $fTWHERE_parts);
+Index: t3lib/class.t3lib_htmlmail.php
+===================================================================
+--- typo3_src-4.2.12/t3lib/class.t3lib_htmlmail.php	(Revision 8247)
++++ typo3_src-4.2.13/t3lib/class.t3lib_htmlmail.php	(Revision 8437)
+@@ -247,7 +247,7 @@
+ 	public function t3lib_htmlmail() {
+ 		$this->forceReturnPath = $GLOBALS['TYPO3_CONF_VARS']['SYS']['forceReturnPath'];
+ 
+-		$this->mailer = 'TYPO3 '.TYPO3_version;
++		$this->mailer = 'TYPO3';
+ 	}
+ 
+ 
+Index: t3lib/class.t3lib_div.php
+===================================================================
+--- typo3_src-4.2.12/t3lib/class.t3lib_div.php	(Revision 8247)
++++ typo3_src-4.2.13/t3lib/class.t3lib_div.php	(Revision 8437)
+@@ -1057,6 +1057,36 @@
+ 	}
+ 
+ 	/**
++	 * Returns a proper HMAC on a given input string and secret TYPO3 encryption key.
++	 *
++	 * @param 	string		Input string to create HMAC from
++	 * @return 	string		resulting (hexadecimal) HMAC currently with a length of 40 (HMAC-SHA-1)
++	 */
++	public static function hmac($input) {
++		$hashAlgorithm = 'sha1';
++		$hashBlocksize = 64;
++		$hmac = '';
++
++		if (extension_loaded('hash') && function_exists('hash_hmac') && function_exists('hash_algos') && in_array($hashAlgorithm, hash_algos())) {
++			$hmac = hash_hmac($hashAlgorithm, $input, $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey']);
++		} else {
++				// outer padding
++			$opad = str_repeat(chr(0x5C), $hashBlocksize);
++				// innner padding
++			$ipad = str_repeat(chr(0x36), $hashBlocksize);
++			if (strlen($GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey']) > $hashBlocksize) {
++					// keys longer than blocksize are shorten
++				$key = str_pad(pack('H*', call_user_func($hashAlgorithm, $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'])), $hashBlocksize, chr(0x00));
++			} else {
++					// keys shorter than blocksize are zero-padded
++				$key = str_pad($GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'], $hashBlocksize, chr(0x00));
++			}
++			$hmac = call_user_func($hashAlgorithm, ($key^$opad) . pack('H*', call_user_func($hashAlgorithm, ($key^$ipad) . $input)));
++		}
++		return $hmac;
++	}
++
++	/**
+ 	 * Takes comma-separated lists and arrays and removes all duplicates
+ 	 * If a value in the list is trim(empty), the value is ignored.
+ 	 * Usage: 16
+@@ -1529,16 +1559,38 @@
+ 		if (TYPO3_OS != 'WIN' && ($fh = @fopen('/dev/urandom', 'rb'))) {
+ 			$output = fread($fh, $count);
+ 			fclose($fh);
++		} elseif (TYPO3_OS == 'WIN') {
++			if (class_exists('COM')) {
++				try {
++					$com = new COM('CAPICOM.Utilities.1');
++					$output = base64_decode($com->GetRandom($count, 0));
++				} catch(Exception $e) {
++					// CAPICOM not installed
++				}
++			}
++			if ($output === '' && version_compare(PHP_VERSION, '5.3.0', '>=')) {
++				if (function_exists('mcrypt_create_iv')) {
++					$output = mcrypt_create_iv($count, MCRYPT_DEV_URANDOM);
++				} elseif (function_exists('openssl_random_pseudo_bytes')) {
++					$isStrong = null;
++					$output = openssl_random_pseudo_bytes($count, $isStrong);
++						// skip ssl since it wasn't using the strong algo
++					if ($isStrong !== TRUE) {
++						$output = '';
++					}
++				}
++			}
+ 		}
+ 
+-			// fallback if /dev/urandom is not available
++			// fallback if other random byte generation failed until now
+ 		if (!isset($output{$count - 1})) {
+ 				// We initialize with the somewhat random.
+ 			$randomState = $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey']
+-							. microtime() . getmypid();
++							. base_convert(memory_get_usage() % pow(10, 6), 10, 2)
++							. microtime() . uniqid('') . getmypid();
+ 			while (!isset($output{$count - 1})) {
+-				$randomState = md5(microtime() . mt_rand() . $randomState);
+-				$output .= md5(mt_rand() . $randomState, true);
++				$randomState = sha1(microtime() . mt_rand() . $randomState);
++				$output .= sha1(mt_rand() . $randomState, true);
+ 			}
+ 			$output = substr($output, strlen($output) - $count, $count);
+ 		}
+@@ -1546,6 +1598,15 @@
+ 
+  
+ 	
++	/**
++	 * Returns a hex representation of a random byte string.
++	 *
++	 * @param		integer  Number of hex characters to return
++	 * @return		string   Random Bytes
++	 */
++	public static function getRandomHexString($count) {
++		return substr(bin2hex(self::generateRandomBytes(intval(($count + 1) / 2))), 0, $count);
++	}
+ 
+ 
+ 
+Index: t3lib/class.t3lib_userauth.php
+===================================================================
+--- typo3_src-4.2.12/t3lib/class.t3lib_userauth.php	(Revision 8247)
++++ typo3_src-4.2.13/t3lib/class.t3lib_userauth.php	(Revision 8437)
+@@ -228,7 +228,7 @@
+ 			// If new session or client tries to fix session...
+ 		if (!$id || !$this->isExistingSessionRecord($id))	{
+ 				// New random session-$id is made
+-			$id = substr(md5(uniqid('').getmypid()),0,$this->hash_length);
++			$id = t3lib_div::getRandomHexString($this->hash_length);
+ 				// New session
+ 			$this->newSessionID = TRUE;
+ 		}
+Index: t3lib/class.t3lib_formmail.php
+===================================================================
+--- typo3_src-4.2.12/t3lib/class.t3lib_formmail.php	(Revision 8247)
++++ typo3_src-4.2.13/t3lib/class.t3lib_formmail.php	(Revision 8437)
+@@ -67,7 +67,7 @@
+  * @see tslib_fe::sendFormmail(), t3lib/formmail.php
+  */
+ class t3lib_formmail extends t3lib_htmlmail {
+-	var $reserved_names = 'recipient,recipient_copy,auto_respond_msg,redirect,subject,attachment,from_email,from_name,replyto_email,replyto_name,organisation,priority,html_enabled,quoted_printable,submit_x,submit_y';
++	protected $reserved_names = 'recipient,recipient_copy,auto_respond_msg,auto_respond_checksum,redirect,subject,attachment,from_email,from_name,replyto_email,replyto_name,organisation,priority,html_enabled,quoted_printable,submit_x,submit_y';
+ 	var $dirtyHeaders = array();	// collection of suspicious header data, used for logging
+ 
+ 
+@@ -132,10 +132,21 @@
+ 			$this->replyto_email = t3lib_div::validEmail($this->replyto_email) ? $this->replyto_email : '';
+ 			$this->priority = ($V['priority']) ? t3lib_div::intInRange($V['priority'],1,5) : 3;
+ 
+-				// Auto responder.
++				// auto responder
+ 			$this->auto_respond_msg = (trim($V['auto_respond_msg']) && $this->from_email) ? trim($V['auto_respond_msg']) : '';
+-			$this->auto_respond_msg = $this->sanitizeHeaderString($this->auto_respond_msg);
+ 
++			if ($this->auto_respond_msg !== '') {
++					// Check if the value of the auto responder message has been modified with evil intentions
++				$autoRespondChecksum = $V['auto_respond_checksum'];
++				$correctHmacChecksum = t3lib_div::hmac($this->auto_respond_msg);
++				if ($autoRespondChecksum !== $correctHmacChecksum) {
++					t3lib_div::sysLog('Possible misuse of t3lib_formmail auto respond method. Subject: ' . $V['subject'], 'Core', 3);
++					return;
++				} else {
++					$this->auto_respond_msg = $this->sanitizeHeaderString($this->auto_respond_msg);
++				}
++			}
++
+ 			$Plain_content = '';
+ 			$HTML_content = '<table border="0" cellpadding="2" cellspacing="2">';
+ 
+Index: t3lib/class.t3lib_bedisplaylog.php
+===================================================================
+--- typo3_src-4.2.12/t3lib/class.t3lib_bedisplaylog.php	(Revision 8247)
++++ typo3_src-4.2.13/t3lib/class.t3lib_bedisplaylog.php	(Revision 8437)
+@@ -200,6 +200,7 @@
+ 				$text = str_replace('%s','',$text);
+ 			}
+ 		}
++		$text = htmlspecialchars($text);
+ 
+ 			// Finding the history for the record
+ 		$res = $GLOBALS['TYPO3_DB']->exec_SELECTquery('uid,fieldlist', 'sys_history', 'sys_log_uid='.intval($sys_log_uid));
+Index: t3lib/class.t3lib_tcemain.php
+===================================================================
+--- typo3_src-4.2.12/t3lib/class.t3lib_tcemain.php	(Revision 8247)
++++ typo3_src-4.2.13/t3lib/class.t3lib_tcemain.php	(Revision 8437)
+@@ -7217,6 +7217,7 @@
+ 					</tr>';
+ 			}
+ 
++			$redirect = t3lib_div::sanitizeLocalUrl($redirect);
+ 			$lines[] = '
+ 					<tr>
+ 						<td colspan="2" align="center"><br />'.
+Index: t3lib/class.t3lib_tsparser_ext.php
+===================================================================
+--- typo3_src-4.2.12/t3lib/class.t3lib_tsparser_ext.php	(Revision 8247)
++++ typo3_src-4.2.13/t3lib/class.t3lib_tsparser_ext.php	(Revision 8437)
+@@ -613,7 +613,7 @@
+ 				$A_B='';
+ 				$A_E='';
+ 			}
+-			$HTML.=($first?'':'<IMG src="'.$GLOBALS['BACK_PATH'].'gfx/ol/'.$PM.$BTM.'.gif" width="18" height="16" align="top" border=0>').'<img ' . t3lib_iconWorks::skinImg($GLOBALS['BACK_PATH'], $icon) . ' align="top" title="'.$alttext.'" /> '.$A_B.t3lib_div::fixed_lgd_cs($row['title'],$GLOBALS['BE_USER']->uc['titleLen']).$A_E.'&nbsp;&nbsp;';
++			$HTML .= ($first ? '' : '<img src="' . $GLOBALS['BACK_PATH'] . 'gfx/ol/' . $PM.$BTM . '.gif" width="18" height="16" align="top" border=0>') . '<img ' . t3lib_iconWorks::skinImg($GLOBALS['BACK_PATH'], $icon) . ' align="top" title="' . htmlspecialchars($alttext) . '" /> ' . $A_B . htmlspecialchars(t3lib_div::fixed_lgd_cs($row['title'], $GLOBALS['BE_USER']->uc['titleLen'])) . $A_E . '&nbsp;&nbsp;';
+ 			$RL = $this->ext_getRootlineNumber($row['pid']);
+ 			$keyArray[] = '<tr>
+ 							<td nowrap>'.$HTML.'</td>
+Index: typo3/class.show_rechis.inc
+===================================================================
+--- typo3_src-4.2.12/typo3/class.show_rechis.inc	(Revision 8247)
++++ typo3_src-4.2.13/typo3/class.show_rechis.inc	(Revision 8437)
+@@ -65,7 +65,7 @@
+ 	function recordHistory()	{
+ 			// GPvars:
+ 		$this->element = t3lib_div::_GP('element');
+-		$this->returnUrl = t3lib_div::_GP('returnUrl');
++		$this->returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
+ 		$this->lastSyslogId = t3lib_div::_GP('diff');
+ 		$this->rollbackFields = t3lib_div::_GP('rollbackFields');
+ 			// resolve sh_uid if set
+Index: typo3/class.browse_links.php
+===================================================================
+--- typo3_src-4.2.12/typo3/class.browse_links.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/class.browse_links.php	(Revision 8437)
+@@ -435,6 +435,8 @@
+ 	 * @return	string		Wrapping title string.
+ 	 */
+ 	function wrapTitle($title,$v,$ext_pArrPages)	{
++		$title = htmlspecialchars($title);
++
+ 		if ($ext_pArrPages)	{
+ 			$ficon=t3lib_iconWorks::getIcon('pages',$v);
+ 			$onClick = "return insertElement('pages', '".$v['uid']."', 'db', ".t3lib_div::quoteJSvalue($v['title']).", '', '', '".$ficon."','',1);";
+@@ -482,6 +484,8 @@
+ 	 * @return	string		Wrapping title string.
+ 	 */
+ 	function wrapTitle($title,$v)	{
++		$title = htmlspecialchars($title);
++
+ 		if ($this->ext_isLinkable($v))	{
+ 			$aOnClick = 'return jumpToUrl(\''.$this->thisScript.'?act='.$GLOBALS['SOBE']->browser->act.'&mode='.$GLOBALS['SOBE']->browser->mode.'&expandFolder='.rawurlencode($v['path']).'\');';
+ 			return '<a href="#" onclick="'.htmlspecialchars($aOnClick).'">'.$title.'</a>';
+@@ -634,6 +638,8 @@
+ 	 * @return	string		Wrapping title string.
+ 	 */
+ 	function wrapTitle($title,$v)	{
++		$title = htmlspecialchars($title);
++
+ 		if ($this->ext_isLinkable($v))	{
+ 			$aOnClick = 'return jumpToUrl(\''.$this->thisScript.'?act='.$GLOBALS['SOBE']->browser->act.'&mode='.$GLOBALS['SOBE']->browser->mode.'&expandFolder='.rawurlencode($v['path']).'\');';
+ 			return '<a href="#" onclick="'.htmlspecialchars($aOnClick).'">'.$title.'</a>';
+@@ -926,6 +932,9 @@
+ 		';
+ 
+ 		if ($this->mode == 'wizard')	{	// Functions used, if the link selector is in wizard mode (= TCEforms fields)
++			if (!$this->areFieldChangeFunctionsValid()) {
++				$this->P['fieldChangeFunc'] = array();
++			}
+ 			unset($this->P['fieldChangeFunc']['alert']);
+ 			reset($this->P['fieldChangeFunc']);
+ 			$update='';
+@@ -2759,6 +2768,19 @@
+ 		}
+ 		return $out;
+ 	}
++
++	/**
++	 * Determines whether submitted field change functions are valid
++	 * and are coming from the system and not from an external abuse.
++	 *
++	 * @return boolean Whether the submitted field change functions are valid
++	 */
++	protected function areFieldChangeFunctionsValid() {
++		return (
++			isset($this->P['fieldChangeFunc']) && is_array($this->P['fieldChangeFunc']) && isset($this->P['fieldChangeFuncHash'])
++			&& $this->P['fieldChangeFuncHash'] == t3lib_div::hmac(serialize($this->P['fieldChangeFunc']))
++		);
++	}
+ }
+ 
+ // Include extension?
+Index: typo3/class.db_list.inc
+===================================================================
+--- typo3_src-4.2.12/typo3/class.db_list.inc	(Revision 8247)
++++ typo3_src-4.2.13/typo3/class.db_list.inc	(Revision 8437)
+@@ -653,7 +653,7 @@
+ 			'?id='.(strcmp($altId,'')?$altId:$this->id).
+ 			'&table='.rawurlencode($table==-1?$this->table:$table).
+ 			($this->thumbs?'&imagemode='.$this->thumbs:'').
+-			($this->returnUrl?'&returnUrl='.rawurlencode($this->returnUrl):'').
++			($this->returnUrl?'&returnUrl='.rawurlencode(t3lib_div::sanitizeLocalUrl($this->returnUrl)):'').
+ 			($this->searchString?'&search_field='.rawurlencode($this->searchString):'').
+ 			($this->searchLevels?'&search_levels='.rawurlencode($this->searchLevels):'').
+ 			($this->showLimit?'&showLimit='.rawurlencode($this->showLimit):'').
+Index: typo3/alt_shortcut.php
+===================================================================
+--- typo3_src-4.2.12/typo3/alt_shortcut.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/alt_shortcut.php	(Revision 8437)
+@@ -166,6 +166,7 @@
+ 		global $BE_USER;
+ 		$description = '';	// Default description
+ 		$url = urldecode($this->URL);
++		$queryParts = parse_url($url);
+ 
+ 			// Lookup the title of this page and use it as default description
+ 		$page_id = $this->getLinkedPageId($url);         
+@@ -189,8 +190,9 @@
+ 		}
+ 
+ 
+-			// Adding a shortcut being set from another frame
+-		if ($this->modName && $this->URL)	{
++			// Adding a shortcut being set from another frame,
++			// but only if it's a relative URL (i.e. scheme part is not defined)
++		if ($this->modName && $this->URL && empty($queryParts['scheme'])) {
+ 			$fields_values = array(
+ 				'userid' => $BE_USER->user['uid'],
+ 				'module_name' => $this->modName.'|'.$this->M_modName,
+Index: typo3/show_item.php
+===================================================================
+--- typo3_src-4.2.12/typo3/show_item.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/show_item.php	(Revision 8437)
+@@ -226,8 +226,9 @@
+ 		global $LANG;
+ 
+ 		if ($this->access)	{
+-			$returnLinkTag = t3lib_div::_GP('returnUrl') ? '<a href="'.t3lib_div::_GP('returnUrl').'" class="typo3-goBack">' : '<a href="#" onclick="window.close();">';
+-
++			$returnLink =  t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
++			$returnLinkTag = $returnLink ? '<a href="' . $returnLink . '" class="typo3-goBack">' : '<a href="#" onclick="window.close();">';
++ 
+ 				// render type by user func
+ 			$typeRendered = false;
+ 			if (is_array ($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['typo3/show_item.php']['typeRendering'])) {
+@@ -257,7 +258,7 @@
+ 			}
+ 
+ 				// If return Url is set, output link to go back:
+-			if (t3lib_div::_GP('returnUrl'))	{
++			if ($returnLink)	{
+ 				$this->content = $this->doc->section('',$returnLinkTag.'<strong>'.$LANG->sL('LLL:EXT:lang/locallang_core.xml:labels.goBack',1).'</strong></a><br /><br />').$this->content;
+ 
+ 				$this->content .= $this->doc->section('','<br />'.$returnLinkTag.'<strong>'.$LANG->sL('LLL:EXT:lang/locallang_core.xml:labels.goBack',1).'</strong></a>');
+Index: typo3/index.php
+===================================================================
+--- typo3_src-4.2.12/typo3/index.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/index.php	(Revision 8437)
+@@ -122,7 +122,7 @@
+ 		global $BE_USER,$TYPO3_CONF_VARS;
+ 
+ 			// GPvars:
+-		$this->redirect_url = t3lib_div::_GP('redirect_url');
++		$this->redirect_url = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('redirect_url'));
+ 		$this->GPinterface = t3lib_div::_GP('interface');
+ 
+ 		if(t3lib_div::getIndpEnv('TYPO3_SSL'))	{	// For security reasons this feature only works if SSL is used
+Index: typo3/classes/class.shortcutmenu.php
+===================================================================
+--- typo3_src-4.2.12/typo3/classes/class.shortcutmenu.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/classes/class.shortcutmenu.php	(Revision 8437)
+@@ -146,7 +146,7 @@
+ 			<tr id="shortcut-'.$shortcut['raw']['uid'].'" class="shortcut">
+ 				<td class="shortcut-icon">'.$shortcut['icon'].'</td>
+ 				<td class="shortcut-label">
+-					<a id="shortcut-label-'.$shortcut['raw']['uid'].'" href="" onclick="'.$shortcut['action'].'">'.$shortcut['label'].'</a>
++					<a id="shortcut-label-' . $shortcut['raw']['uid'] . '" href="" onclick="' . $shortcut['action'] . '">' . htmlspecialchars($shortcut['label']) . '</a>
+ 				</td>
+ 				<td class="shortcut-edit">'.$editIcon.' id="shortcut-edit-'.$shortcut['raw']['uid'].'" /></td>
+ 				<td class="shortcut-delete">'.$deleteIcon.'</td>
+@@ -179,7 +179,7 @@
+ 					<tr id="shortcut-'.$shortcut['raw']['uid'].'" class="shortcut'.$firstRow.'">
+ 						<td class="shortcut-icon">'.$shortcut['icon'].'</td>
+ 						<td class="shortcut-label">
+-							<a id="shortcut-label-'.$shortcut['raw']['uid'].'" href="" onclick="'.$shortcut['action'].'">'.$shortcut['label'].'</a>
++							<a id="shortcut-label-' . $shortcut['raw']['uid'] . '" href="" onclick="' . $shortcut['action'] . '">' . htmlspecialchars($shortcut['label']) . '</a>
+ 						</td>
+ 						<td class="shortcut-edit">'.$editIcon.' id="shortcut-edit-'.$shortcut['raw']['uid'].'" /></td>
+ 						<td class="shortcut-delete">'.$deleteIcon.'</td>
+@@ -501,61 +501,64 @@
+ 		$queryParts      = parse_url($url);
+ 		$queryParameters = t3lib_div::explodeUrl2Array($queryParts['query'], 1);
+ 
+-		if(is_array($queryParameters['edit'])) {
+-			$shortcut['table']    = key($queryParameters['edit']);
+-			$shortcut['recordid'] = key($queryParameters['edit'][$shortcut['table']]);
++			// Proceed only if no scheme is defined, as URL is expected to be relative
++		if (empty($queryParts['scheme'])) {
++			if (is_array($queryParameters['edit'])) {
++				$shortcut['table']    = key($queryParameters['edit']);
++				$shortcut['recordid'] = key($queryParameters['edit'][$shortcut['table']]);
+ 
+-			if($queryParameters['edit'][$shortcut['table']][$shortcut['recordid']] == 'edit') {
+-				$shortcut['type']    = 'edit';
+-				$shortcutNamePrepend = $GLOBALS['LANG']->getLL('shortcut_edit', 1);
+-			} elseif($queryParameters['edit'][$shortcut['table']][$shortcut['recordid']] == 'new') {
+-				$shortcut['type']    = 'new';
+-				$shortcutNamePrepend = $GLOBALS['LANG']->getLL('shortcut_create', 1);
++				if($queryParameters['edit'][$shortcut['table']][$shortcut['recordid']] == 'edit') {
++					$shortcut['type']    = 'edit';
++					$shortcutNamePrepend = $GLOBALS['LANG']->getLL('shortcut_edit', 1);
++				} elseif($queryParameters['edit'][$shortcut['table']][$shortcut['recordid']] == 'new') {
++					$shortcut['type']    = 'new';
++					$shortcutNamePrepend = $GLOBALS['LANG']->getLL('shortcut_create', 1);
++				}
++			} else {
++				$shortcut['type'] = 'other';
+ 			}
+-		} else {
+-			$shortcut['type'] = 'other';
+-		}
+ 
+-			// Lookup the title of this page and use it as default description
+-		$pageId = $shortcut['recordid'] ? $shortcut['recordid'] : $this->getLinkedPageId($url);
++				// Lookup the title of this page and use it as default description
++			$pageId = $shortcut['recordid'] ? $shortcut['recordid'] : $this->getLinkedPageId($url);
+ 
+-		if(t3lib_div::testInt($pageId)) {
+-			$page = t3lib_BEfunc::getRecord('pages', $pageId);
+-			if(count($page)) {
+-					// set the name to the title of the page
+-				if($shortcut['type'] == 'other') {
+-					$shortcutName = $page['title'];
+-				} else {
+-					$shortcutName = $shortcutNamePrepend.' '.$LANG->sL($TCA[$shortcut['table']]['ctrl']['title']).' ('.$page['title'].')';
++			if(t3lib_div::testInt($pageId)) {
++				$page = t3lib_BEfunc::getRecord('pages', $pageId);
++				if(count($page)) {
++						// set the name to the title of the page
++					if($shortcut['type'] == 'other') {
++						$shortcutName = $page['title'];
++					} else {
++						$shortcutName = $shortcutNamePrepend.' '.$LANG->sL($TCA[$shortcut['table']]['ctrl']['title']).' ('.$page['title'].')';
++					}
+ 				}
++			} else {
++				$dirName = urldecode($pageId);
++				if (preg_match('/\/$/', $dirName)) {
++						// if $pageId is a string and ends with a slash,
++						// assume it is a fileadmin reference and set
++						// the description to the basename of that path
++					$shortcutName .= ' ' . basename($dirName);
++				}
+ 			}
+-		} else {
+-			$dirName = urldecode($pageId);         
+-			if (preg_match('/\/$/', $dirName)) {
+-					// if $pageId is a string and ends with a slash,
+-					// assume it is a fileadmin reference and set
+-					// the description to the basename of that path
+-				$shortcutName .= ' ' . basename($dirName);
+-			}
+-		}
+ 
+ 			// adding the shortcut
+ 		if($module && $url) {
+-			$fieldValues = array(
+-				'userid'      => $GLOBALS['BE_USER']->user['uid'],
+-				'module_name' => $module.'|'.$motherModule,
+-				'url'         => $url,
+-				'description' => $shortcutName,
+-				'sorting'     => time(),
+-			);
+-			$GLOBALS['TYPO3_DB']->exec_INSERTquery('sys_be_shortcuts', $fieldValues);
++				$fieldValues = array(
++					'userid'      => $GLOBALS['BE_USER']->user['uid'],
++					'module_name' => $module.'|'.$motherModule,
++					'url'         => $url,
++					'description' => $shortcutName,
++					'sorting'     => time(),
++				);
++				$GLOBALS['TYPO3_DB']->exec_INSERTquery('sys_be_shortcuts', $fieldValues);
+ 
+-			if($GLOBALS['TYPO3_DB']->sql_affected_rows() == 1) {
+-				$shortcutCreated = 'success';
++				if($GLOBALS['TYPO3_DB']->sql_affected_rows() == 1) {
++					$shortcutCreated = 'success';
++				}
+ 			}
++
++			$ajaxObj->addContent('create', $shortcutCreated);
+ 		}
+-
+-		$ajaxObj->addContent('create', $shortcutCreated);
+ 	}
+ 
+ 	/**
+Index: typo3/template.php
+===================================================================
+--- typo3_src-4.2.12/typo3/template.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/template.php	(Revision 8437)
+@@ -544,7 +544,7 @@
+ 		));
+ 
+ 		$out ="
+-	var T3_RETURN_URL = '".str_replace('%20','',rawurlencode(t3lib_div::_GP('returnUrl')))."';
++	var T3_RETURN_URL = '".str_replace('%20','',rawurlencode(t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'))))."';
+ 	var T3_THIS_LOCATION = '".str_replace('%20','',rawurlencode($thisLocation))."';
+ 		";
+ 		return $out;
+@@ -1985,7 +1985,7 @@
+ 			$theIcon = $GLOBALS['SOBE']->doc->wrapClickMenuOnIcon($iconImg, 'pages', $pageRecord['uid']);
+ 		} else {	// On root-level of page tree
+ 				// Make Icon
+-			$iconImg = '<img' . t3lib_iconWorks::skinImg($this->backPath, 'gfx/i/_icon_website.gif') . ' alt="' . $GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename'] . '" />';
++			$iconImg = '<img' . t3lib_iconWorks::skinImg($this->backPath, 'gfx/i/_icon_website.gif') . ' alt="' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename']) . '" />';
+ 			if($BE_USER->user['admin']) {
+ 				$theIcon = $GLOBALS['SOBE']->doc->wrapClickMenuOnIcon($iconImg, 'pages', 0);
+ 			} else {
+Index: typo3/tce_db.php
+===================================================================
+--- typo3_src-4.2.12/typo3/tce_db.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/tce_db.php	(Revision 8437)
+@@ -118,7 +118,7 @@
+ 		$this->cmd = t3lib_div::_GP('cmd');
+ 		$this->mirror = t3lib_div::_GP('mirror');
+ 		$this->cacheCmd = t3lib_div::_GP('cacheCmd');
+-		$this->redirect = t3lib_div::_GP('redirect');
++		$this->redirect = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('redirect'));
+ 		$this->prErr = t3lib_div::_GP('prErr');
+ 		$this->_disableRTE = t3lib_div::_GP('_disableRTE');
+ 		$this->CB = t3lib_div::_GP('CB');
+Index: typo3/wizard_list.php
+===================================================================
+--- typo3_src-4.2.12/typo3/wizard_list.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/wizard_list.php	(Revision 8437)
+@@ -117,9 +117,9 @@
+ 
+ 			// Make redirect:
+ 		if (!strcmp($this->pid,'') || strcmp($this->id,''))	{	// If pid is blank OR if id is set, then return...
+-			header('Location: '.t3lib_div::locationHeaderUrl($this->P['returnUrl']));
++			header('Location: '.t3lib_div::locationHeaderUrl(t3lib_div::sanitizeLocalUrl($this->P['returnUrl'])));
+ 		} else {	// Otherwise, show the list:
+-			header('Location: '.t3lib_div::locationHeaderUrl('db_list.php?id='.$this->pid.'&table='.$this->P['params']['table'].'&returnUrl='.rawurlencode(t3lib_div::getIndpEnv('REQUEST_URI'))));
++			header('Location: '.t3lib_div::locationHeaderUrl('db_list.php?id='.$this->pid.'&table='.$this->P['params']['table'].'&returnUrl='.rawurlencode(t3lib_div::sanitizeLocalUrl(t3lib_div::getIndpEnv('REQUEST_URI')))));
+ 		}
+ 	}
+ }
+Index: typo3/wizard_tsconfig.php
+===================================================================
+--- typo3_src-4.2.12/typo3/wizard_tsconfig.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/wizard_tsconfig.php	(Revision 8437)
+@@ -164,7 +164,9 @@
+ 		$this->objString = t3lib_div::_GP('objString');
+ 		$this->onlyProperty = t3lib_div::_GP('onlyProperty');
+ 			// Preparing some JavaScript code:
+-		if (!is_array($this->P['fieldChangeFunc']))	$this->P['fieldChangeFunc']=array();
++		if (!$this->areFieldChangeFunctionsValid()) {
++			$this->P['fieldChangeFunc']=array();
++		}
+ 		unset($this->P['fieldChangeFunc']['alert']);
+ 		$update='';
+ 		foreach($this->P['fieldChangeFunc'] as $k=>$v)	{
+@@ -637,6 +639,19 @@
+ 			// Return link:
+ 		return $out;
+ 	}
++
++	/**
++	 * Determines whether submitted field change functions are valid
++	 * and are coming from the system and not from an external abuse.
++	 *
++	 * @return boolean Whether the submitted field change functions are valid
++	 */
++	protected function areFieldChangeFunctionsValid() {
++		return (
++			isset($this->P['fieldChangeFunc']) && is_array($this->P['fieldChangeFunc']) && isset($this->P['fieldChangeFuncHash'])
++			&& $this->P['fieldChangeFuncHash'] == t3lib_div::hmac(serialize($this->P['fieldChangeFunc']))
++		);
++	}
+ }
+ 
+ // Include extension?
+Index: typo3/wizard_colorpicker.php
+===================================================================
+--- typo3_src-4.2.12/typo3/wizard_colorpicker.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/wizard_colorpicker.php	(Revision 8437)
+@@ -78,6 +78,7 @@
+ 	var $P;				// Wizard parameters, coming from TCEforms linking to the wizard.
+ 	var $colorValue;	// Value of the current color picked.
+ 	var $fieldChangeFunc;	// Serialized functions for changing the field... Necessary to call when the value is transferred to the TCEform since the form might need to do internal processing. Otherwise the value is simply not be saved.
++	protected $fieldChangeFuncHash;
+ 	var $fieldName;		// Form name (from opener script)
+ 	var $formName;		// Field name (from opener script)
+ 	var $md5ID;			// ID of element in opener script for which to set color.
+@@ -115,6 +116,7 @@
+ 			// Setting GET vars (used in colorpicker script):
+ 		$this->colorValue = t3lib_div::_GP('colorValue');
+ 		$this->fieldChangeFunc = t3lib_div::_GP('fieldChangeFunc');
++		$this->fieldChangeFuncHash = t3lib_div::_GP('fieldChangeFuncHash');
+ 		$this->fieldName = t3lib_div::_GP('fieldName');
+ 		$this->formName = t3lib_div::_GP('formName');
+ 		$this->md5ID = t3lib_div::_GP('md5ID');
+@@ -133,7 +135,7 @@
+ 			// Setting field-change functions:
+ 		$fieldChangeFuncArr = unserialize($this->fieldChangeFunc);
+ 		$update = '';
+-		if (is_array($fieldChangeFuncArr))	{
++		if ($this->areFieldChangeFunctionsValid()) {
+ 			unset($fieldChangeFuncArr['alert']);
+ 			foreach($fieldChangeFuncArr as $v)	{
+ 				$update.= '
+@@ -270,7 +272,8 @@
+ 				'&formName='.rawurlencode($this->P['formName']).
+ 				'&exampleImg='.rawurlencode($this->P['exampleImg']).
+ 				'&md5ID='.rawurlencode($this->P['md5ID']).
+-				'&fieldChangeFunc='.rawurlencode(serialize($this->P['fieldChangeFunc']));
++				'&fieldChangeFunc='.rawurlencode(serialize($this->P['fieldChangeFunc'])) .
++				'&fieldChangeFuncHash=' . $this->P['fieldChangeFuncHash'];
+ 
+ 		$this->content.='
+ 			<frameset rows="*,1" framespacing="0" frameborder="0" border="0">
+@@ -436,6 +439,19 @@
+ 		$hex = implode('',$hexvalue);
+ 		return $hex;
+ 	}
++
++	/**
++	 * Determines whether submitted field change functions are valid
++	 * and are coming from the system and not from an external abuse.
++	 *
++	 * @return boolean Whether the submitted field change functions are valid
++	 */
++	protected function areFieldChangeFunctionsValid() {
++		return (
++			$this->fieldChangeFunc && $this->fieldChangeFuncHash
++			&& $this->fieldChangeFuncHash == t3lib_div::hmac($this->fieldChangeFunc)
++		);
++	}
+ }
+ 
+ // Include extension?
+Index: typo3/alt_doc.php
+===================================================================
+--- typo3_src-4.2.12/typo3/alt_doc.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/alt_doc.php	(Revision 8437)
+@@ -200,7 +200,7 @@
+ 		$this->defVals = t3lib_div::_GP('defVals');
+ 		$this->overrideVals = t3lib_div::_GP('overrideVals');
+ 		$this->columnsOnly = t3lib_div::_GP('columnsOnly');
+-		$this->returnUrl = t3lib_div::_GP('returnUrl');
++		$this->returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
+ 		$this->closeDoc = t3lib_div::_GP('closeDoc');
+ 		$this->doSave = t3lib_div::_GP('doSave');
+ 		$this->returnEditConf = t3lib_div::_GP('returnEditConf');
+@@ -271,7 +271,7 @@
+ 		$this->cmd = t3lib_div::_GP('cmd');
+ 		$this->mirror = t3lib_div::_GP('mirror');
+ 		$this->cacheCmd = t3lib_div::_GP('cacheCmd');
+-		$this->redirect = t3lib_div::_GP('redirect');
++		$this->redirect = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('redirect'));
+ 		$this->returnNewPageId = t3lib_div::_GP('returnNewPageId');
+ 		$this->vC = t3lib_div::_GP('vC');
+ 
+@@ -1161,7 +1161,7 @@
+ 			if (is_array($localizedRecord))	{
+ 					// Create parameters and finally run the classic page module for creating a new page translation
+ 				$params = '&edit['.$table.']['.$localizedRecord['uid'].']=edit';
+-				$returnUrl = '&returnUrl='.rawurlencode(t3lib_div::_GP('returnUrl'));
++				$returnUrl = '&returnUrl='.rawurlencode(t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl')));
+ 				$location = $GLOBALS['BACK_PATH'].'alt_doc.php?'.$params.$returnUrl;
+ 
+ 				header('Location: '.t3lib_div::locationHeaderUrl($location));
+Index: typo3/wizard_forms.php
+===================================================================
+--- typo3_src-4.2.12/typo3/wizard_forms.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/wizard_forms.php	(Revision 8437)
+@@ -359,7 +359,7 @@
+ 
+ 					// If the save/close button was pressed, then redirect the screen:
+ 				if ($_POST['saveandclosedok_x'])	{
+-					header('Location: '.t3lib_div::locationHeaderUrl($this->P['returnUrl']));
++					header('Location: '.t3lib_div::locationHeaderUrl(t3lib_div::sanitizeLocalUrl($this->P['returnUrl'])));
+ 					exit;
+ 				}
+ 			}
+@@ -641,7 +641,7 @@
+ 			<div id="c-saveButtonPanel">';
+ 		$content.= '<input type="image" class="c-inputButton" name="savedok"'.t3lib_iconWorks::skinImg($this->doc->backPath,'gfx/savedok.gif','').' title="'.$LANG->sL('LLL:EXT:lang/locallang_core.php:rm.saveDoc',1).'" />';
+ 		$content.= '<input type="image" class="c-inputButton" name="saveandclosedok"'.t3lib_iconWorks::skinImg($this->doc->backPath,'gfx/saveandclosedok.gif','').' title="'.$LANG->sL('LLL:EXT:lang/locallang_core.php:rm.saveCloseDoc',1).'" />';
+-		$content.= '<a href="#" onclick="'.htmlspecialchars('jumpToUrl(unescape(\''.rawurlencode($this->P['returnUrl']).'\')); return false;').'">'.
++		$content.= '<a href="#" onclick="'.htmlspecialchars('jumpToUrl(unescape(\''.rawurlencode(t3lib_div::sanitizeLocalUrl($this->P['returnUrl'])).'\')); return false;').'">'.
+ 					'<img'.t3lib_iconWorks::skinImg($this->doc->backPath,'gfx/closedok.gif','width="21" height="16"').' class="c-inputButton" title="'.$LANG->sL('LLL:EXT:lang/locallang_core.php:rm.closeDoc',1).'" alt="" />'.
+ 					'</a>';
+ 		$content.= '<input type="image" class="c-inputButton" name="_refresh"'.t3lib_iconWorks::skinImg('','gfx/refresh_n.gif','').' title="'.$LANG->getLL('forms_refresh',1).'" />';
+Index: typo3/file_rename.php
+===================================================================
+--- typo3_src-4.2.12/typo3/file_rename.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/file_rename.php	(Revision 8437)
+@@ -109,7 +109,7 @@
+ 
+ 			// Initialize GPvars:
+ 		$this->target = t3lib_div::_GP('target');
+-		$this->returnUrl = t3lib_div::_GP('returnUrl');
++		$this->returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
+ 
+ 			// Init basic-file-functions object:
+ 		$this->basicff = t3lib_div::makeInstance('t3lib_basicFileFunctions');
+Index: typo3/wizard_table.php
+===================================================================
+--- typo3_src-4.2.12/typo3/wizard_table.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/wizard_table.php	(Revision 8437)
+@@ -277,7 +277,7 @@
+ 
+ 					// If the save/close button was pressed, then redirect the screen:
+ 				if ($_POST['saveandclosedok_x'])	{
+-					header('Location: '.t3lib_div::locationHeaderUrl($this->P['returnUrl']));
++					header('Location: '.t3lib_div::locationHeaderUrl(t3lib_div::sanitizeLocalUrl($this->P['returnUrl'])));
+ 					exit;
+ 				}
+ 			}
+Index: typo3/wizard_add.php
+===================================================================
+--- typo3_src-4.2.12/typo3/wizard_add.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/wizard_add.php	(Revision 8437)
+@@ -123,7 +123,7 @@
+ 
+ 			// Return if new record as parent (not possibly/allowed)
+ 		if (!strcmp($this->pid,''))	{
+-			header('Location: '.t3lib_div::locationHeaderUrl($this->P['returnUrl']));
++			header('Location: '.t3lib_div::locationHeaderUrl(t3lib_div::sanitizeLocalUrl($this->P['returnUrl'])));
+ 			exit;
+ 		}
+ 
+@@ -192,7 +192,7 @@
+ 				}
+ 			}
+ 				// Return to the parent alt_doc.php record editing session:
+-			header('Location: '.t3lib_div::locationHeaderUrl($this->P['returnUrl']));
++			header('Location: '.t3lib_div::locationHeaderUrl(t3lib_div::sanitizeLocalUrl($this->P['returnUrl'])));
+ 		} else {
+ 				// Redirecting to alt_doc.php with instructions to create a new record AND when closing to return back with information about that records ID etc.
+ 			header('Location: '.t3lib_div::locationHeaderUrl('alt_doc.php?returnUrl='.rawurlencode(t3lib_div::getIndpEnv('REQUEST_URI')).'&returnEditConf=1&edit['.$this->P['params']['table'].']['.$this->pid.']=new'));
+Index: typo3/logout.php
+===================================================================
+--- typo3_src-4.2.12/typo3/logout.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/logout.php	(Revision 8437)
+@@ -72,7 +72,9 @@
+ 		$BE_USER->writelog(255,2,0,1,'User %s logged out from TYPO3 Backend',Array($BE_USER->user['username']));	// Logout written to log
+ 		$BE_USER->logoff();
+ 
+-		header('Location: '.t3lib_div::locationHeaderUrl(t3lib_div::_GP('redirect')?t3lib_div::_GP('redirect'):'index.php'));
++		$redirect = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('redirect'));
++		$redirectUrl = $redirect ? $redirect : 'index.php';
++		header('Location: '.t3lib_div::locationHeaderUrl($redirectUrl));
+ 	}
+ }
+ 
+Index: typo3/tce_file.php
+===================================================================
+--- typo3_src-4.2.12/typo3/tce_file.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/tce_file.php	(Revision 8437)
+@@ -98,7 +98,7 @@
+ 
+ 			// GPvars:
+ 		$this->file = t3lib_div::_GP('file');
+-		$this->redirect = t3lib_div::_GP('redirect');
++		$this->redirect = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('redirect'));
+ 		$this->CB = t3lib_div::_GP('CB');
+ 		$this->overwriteExistingFiles = t3lib_div::_GP('overwriteExistingFiles');
+ 		$this->vC = t3lib_div::_GP('vC');
+Index: typo3/file_edit.php
+===================================================================
+--- typo3_src-4.2.12/typo3/file_edit.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/file_edit.php	(Revision 8437)
+@@ -107,7 +107,7 @@
+ 
+ 			// Setting target, which must be a file reference to a file within the mounts.
+ 		$this->target = $this->origTarget = t3lib_div::_GP('target');
+-		$this->returnUrl = t3lib_div::_GP('returnUrl');
++		$this->returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
+ 
+ 			// Creating file management object:
+ 		$this->basicff = t3lib_div::makeInstance('t3lib_basicFileFunctions');
+Index: typo3/file_newfolder.php
+===================================================================
+--- typo3_src-4.2.12/typo3/file_newfolder.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/file_newfolder.php	(Revision 8437)
+@@ -115,7 +115,7 @@
+ 			// Initialize GPvars:
+ 		$this->number = t3lib_div::_GP('number');
+ 		$this->target = t3lib_div::_GP('target');
+-		$this->returnUrl = t3lib_div::_GP('returnUrl');
++		$this->returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
+ 
+ 			// Init basic-file-functions object:
+ 		$this->basicff = t3lib_div::makeInstance('t3lib_basicFileFunctions');
+Index: typo3/mod/tools/em/class.em_index.php
+===================================================================
+--- typo3_src-4.2.12/typo3/mod/tools/em/class.em_index.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/mod/tools/em/class.em_index.php	(Revision 8437)
+@@ -1974,7 +1974,7 @@
+ 
+ 			// Function menu here:
+ 		if(!$this->CMD['standAlone'] && !t3lib_div::_GP('standAlone')) {
+-			$content = 'Extension:&nbsp;<strong>' . $this->extensionTitleIconHeader($extKey, $list[$extKey]) . '</strong> (' . $extKey . ')';
++			$content = 'Extension:&nbsp;<strong>' . $this->extensionTitleIconHeader($extKey, $list[$extKey]) . '</strong> (' . htmlspecialchars($extKey) . ')';
+ 			$this->content.= $this->doc->section('', $content);
+ 		}
+ 
+@@ -2077,7 +2077,7 @@
+ 
+ 				// Editing extension file:
+ 				$editFile = $this->CMD['editFile'];
+-				if (t3lib_div::isFirstPartOfStr($editFile,PATH_site) && t3lib_div::isFirstPartOfStr($editFile,$absPath))	{	// Paranoia...
++				if (t3lib_div::isAllowedAbsPath($editFile) && t3lib_div::isFirstPartOfStr($editFile, $absPath)) {
+ 
+ 					$fI = t3lib_div::split_fileref($editFile);
+ 					if (@is_file($editFile) && t3lib_div::inList($this->editTextExtensions,($fI['fileext']?$fI['fileext']:$fI['filebody'])))	{
+@@ -2133,7 +2133,7 @@
+ 							$theOutput.=$this->doc->section('Filesize exceeded '.$this->kbMax.' Kbytes','Files larger than '.$this->kbMax.' KBytes are not allowed to be edited.');
+ 						}
+ 					}
+-				} else die('Fatal Edit error: File "'.$editFile.'" was not inside the correct path of the TYPO3 Extension!');
++				} else die('Fatal Edit error: File "' . htmlspecialchars($editFile) . '" was not inside the correct path of the TYPO3 Extension!');
+ 			} else {
+ 
+ 				// MAIN:
+@@ -2250,7 +2250,7 @@
+ 	function requestInstallExtensions($extList)	{
+ 
+ 			// Return URL:
+-		$returnUrl = t3lib_div::_GP('returnUrl');
++		$returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
+ 		$installOrImportExtension = t3lib_div::_POST('installOrImportExtension');
+ 
+ 			// Extension List:
+@@ -3008,7 +3008,7 @@
+ 		if (is_array($imgInfo))	{
+ 			$out.= '<img src="'.$GLOBALS['BACK_PATH'].$this->typeRelPaths[$extInfo['type']].$extKey.'/ext_icon.gif" '.$imgInfo[3].' align="'.$align.'" alt="" />';
+ 		}
+-		$out.= $extInfo['EM_CONF']['title'] ? htmlspecialchars(t3lib_div::fixed_lgd($extInfo['EM_CONF']['title'],40)) : '<em>'.$extKey.'</em>';
++		$out.= $extInfo['EM_CONF']['title'] ? htmlspecialchars(t3lib_div::fixed_lgd($extInfo['EM_CONF']['title'], 40)) : '<em>' . htmlspecialchars($extKey) . '</em>';
+ 		return $out;
+ 	}
+ 
+Index: typo3/db_new.php
+===================================================================
+--- typo3_src-4.2.12/typo3/db_new.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/db_new.php	(Revision 8437)
+@@ -176,7 +176,7 @@
+ 		}
+ 			// Setting GPvars:
+ 		$this->id = intval(t3lib_div::_GP('id'));	// The page id to operate from
+-		$this->returnUrl = t3lib_div::_GP('returnUrl');
++		$this->returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
+ 		$this->pagesOnly = t3lib_div::_GP('pagesOnly');
+ 
+ 			// Create instance of template class for output
+Index: typo3/init.php
+===================================================================
+--- typo3_src-4.2.12/typo3/init.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/init.php	(Revision 8437)
+@@ -127,7 +127,10 @@
+ 		echo 'It seems you are trying to run the TYPO3 source libraries DIRECTLY! You cannot do that.<br />
+ 		Please read the installation documents for more information.';
+ 	} else {
+-		echo 'This happens if the last '.strlen(TYPO3_mainDir).' characters of this path, '.$temp_path.' ($temp_path), is NOT "'.TYPO3_mainDir.'" for some reason.<br />
++		$temp_path_parts = explode('/', $temp_path);
++		$temp_path_parts = array_slice($temp_path_parts, count($temp_path_parts) - 3);
++		$temp_path = '..../' . implode('/', $temp_path_parts);
++		echo 'This happens if the last ' . strlen(TYPO3_mainDir) . ' characters of this path, ' . $temp_path . ' (end of $temp_path), is NOT "' . TYPO3_mainDir . '" for some reason.<br />
+ 		You may have a strange server configuration.
+ 		Or maybe you didn\'t set constant TYPO3_MOD_PATH in your module?';
+ 	}
+Index: typo3/sysext/felogin/pi1/class.tx_felogin_pi1.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/felogin/pi1/class.tx_felogin_pi1.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/felogin/pi1/class.tx_felogin_pi1.php	(Revision 8437)
+@@ -101,6 +101,7 @@
+ 		if ($this->conf['redirectMode'] && !$this->conf['redirectDisable']) {
+ 			$this->redirectUrl = $this->processRedirect();
+ 		}
++		$this->redirectUrl = $this->validateRedirectUrl($this->redirectUrl);
+ 
+ 
+ 			// What to display
+@@ -612,6 +613,81 @@
+ 	protected function getDisplayText($label, $stdWrapArray=array()) {
+ 		return $this->flexFormValue($label,'s_messages') ? $this->cObj->stdWrap($this->flexFormValue($label,'s_messages'),$stdWrapArray) : $this->cObj->stdWrap($this->pi_getLL('ll_'.$label, '', 1), $stdWrapArray);
+ 	}
++
++	/**
++	 * Returns a valid and XSS cleaned url for redirect, checked against configuration "allowedRedirectHosts"
++	 *
++	 * @param string $url
++	 * @return string cleaned referer or empty string if not valid
++	 */
++	protected function validateRedirectUrl($url) {
++		$url = strval($url);
++		if ($url === '') {
++			return '';
++		}
++
++		$sanitizedUrl = t3lib_div::removeXSS(rawurldecode($url));
++		if ($url !== $sanitizedUrl) {
++			t3lib_div::sysLog(sprintf($this->pi_getLL('xssAttackDetected'), $url), 'felogin', t3lib_div::SYSLOG_SEVERITY_WARNING);
++			return '';
++		}
++
++		if (!t3lib_div::isValidUrl($sanitizedUrl)) {
++			t3lib_div::sysLog(sprintf($this->pi_getLL('noValidRedirectUrl'), $sanitizedUrl), 'felogin', t3lib_div::SYSLOG_SEVERITY_WARNING);
++			return '';
++		}
++
++			// Validate the URL:
++		if ($this->isInCurrentDomain($sanitizedUrl) || $this->isInLocalDomain($sanitizedUrl)) {
++			return $sanitizedUrl;
++		}
++
++			// URL is not allowed
++		t3lib_div::sysLog(sprintf($this->pi_getLL('noValidRedirectUrl'), $url), 'felogin', t3lib_div::SYSLOG_SEVERITY_WARNING);
++		return '';
++	}
++
++	/**
++	 * Determines whether the URL is on the current host
++	 * and belongs to the current TYPO3 installation.
++	 *
++	 * @param string $url URL to be checked
++	 * @return boolean Whether the URL belongs to the current TYPO3 installation
++	 */
++	protected function isInCurrentDomain($url) {
++		return (t3lib_div::isOnCurrentHost($url) && strpos($url, t3lib_div::getIndpEnv('TYPO3_SITE_URL')) === 0);
++	}
++
++	/**
++	 * Determines whether the URL matches a domain
++	 * in the sys_domain databse table.
++	 *
++	 * @param string $domain Name of the domain to be looked up
++	 * @return boolean Whether the domain name is considered to be local
++	 */
++	protected function isInLocalDomain($url) {
++		$result = FALSE;
++
++		$parsedUrl = parse_url($url);
++		$domain = $parsedUrl['host'] . $parsedUrl['path'];
++
++		$localDomains = $GLOBALS['TYPO3_DB']->exec_SELECTgetRows(
++			'domainName',
++			'sys_domain',
++			'1=1' . $this->cObj->enableFields('sys_domain')
++		);
++
++		if (is_array($localDomains)) {
++			foreach ($localDomains as $localDomain) {
++				if (stripos($domain, $localDomain['domainName']) === 0) {
++					$result = TRUE;
++					break;
++				}
++			}
++		}
++
++		return $result;
++	}
+ }
+ 
+ 
+Index: typo3/sysext/felogin/pi1/locallang.xml
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/felogin/pi1/locallang.xml	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/felogin/pi1/locallang.xml	(Revision 8437)
+@@ -44,6 +44,8 @@
+ 			<label index="ll_forgot_message">Please enter the email address by which you registered your user account. Then press &quot;Send password&quot; and your password will immediately be emailed to you. Make sure to spell your email address correctly.</label>
+ 			<label index="ll_forgot_message_emailSent">Your password has now been sent to the email address %s</label>
+ 			<label index="ll_forgot_header_backToLogin">Return to login form</label>
++			<label index="noValidRedirectUrl">Url "%s" for redirect was not accepted!</label>
++			<label index="xssAttackDetected">Url "%s" contained an XSS attack and was cleaned!</label>
+ 		</languageKey>
+ 	</data>
+ </T3locallang>
+Index: typo3/sysext/tstemplate_analyzer/class.tx_tstemplateanalyzer.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/tstemplate_analyzer/class.tx_tstemplateanalyzer.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/tstemplate_analyzer/class.tx_tstemplateanalyzer.php	(Revision 8437)
+@@ -151,13 +151,13 @@
+ 			reset($tmpl->clearList_const);
+ 			while(list($key,$val)=each($tmpl->constants))	{
+ 				$cVal = current($tmpl->clearList_const);
+-				if ($cVal==t3lib_div::_GET('template') || t3lib_div::_GET('template')=="all")	{
+-					$theOutput.='
++				if ($cVal == t3lib_div::_GET('template') || t3lib_div::_GET('template') == 'all')	{
++					$theOutput .= '
+ 						<tr>
+-							<td><img src=clear.gif width=3 height=1></td><td class="bgColor2"><b>'.$tmpl->templateTitles[$cVal].'</b></td></tr>
++							<td><img src="clear.gif" width="3" height="1"></td><td class="bgColor2"><b>' . htmlspecialchars($tmpl->templateTitles[$cVal]) . '</b></td></tr>
+ 						<tr>
+-							<td><img src=clear.gif width=3 height=1></td>
+-							<td class="bgColor2"><table border=0 cellpadding=0 cellspacing=0 class="bgColor4" width="100%"><tr><td nowrap>'.$tmpl->ext_outputTS(array($val),$this->pObj->MOD_SETTINGS["ts_analyzer_checkLinenum"],$this->pObj->MOD_SETTINGS["ts_analyzer_checkComments"],$this->pObj->MOD_SETTINGS["ts_analyzer_checkCrop"],$this->pObj->MOD_SETTINGS["ts_analyzer_checkSyntax"],$this->pObj->MOD_SETTINGS["ts_analyzer_checkSyntaxBlockmode"]).'</td></tr></table>
++							<td><img src="clear.gif" width="3" height="1"></td>
++							<td class="bgColor2"><table border="0" cellpadding="0" cellspacing="0" class="bgColor4" width="100%"><tr><td nowrap="nowrap">' . $tmpl->ext_outputTS(array($val), $this->pObj->MOD_SETTINGS['ts_analyzer_checkLinenum'], $this->pObj->MOD_SETTINGS['ts_analyzer_checkComments'], $this->pObj->MOD_SETTINGS['ts_analyzer_checkCrop'], $this->pObj->MOD_SETTINGS['ts_analyzer_checkSyntax'], $this->pObj->MOD_SETTINGS['ts_analyzer_checkSyntaxBlockmode']) . '</td></tr></table>
+ 							</td>
+ 						</tr>
+ 					';
+@@ -187,13 +187,13 @@
+ 			reset($tmpl->config);
+ 			reset($tmpl->clearList_setup);
+ 			while(list($key,$val)=each($tmpl->config))	{
+-				if (current($tmpl->clearList_setup)==t3lib_div::_GET('template') || t3lib_div::_GET('template')=="all")	{
++				if (current($tmpl->clearList_setup) == t3lib_div::_GET('template') || t3lib_div::_GET('template') == 'all')	{
+ 					$theOutput.='
+ 						<tr>
+-							<td><img src=clear.gif width=3 height=1></td><td class="bgColor2"><b>'.$tmpl->templateTitles[current($tmpl->clearList_setup)].'</b></td></tr>
++							<td><img src="clear.gif" width="3" height="1"></td><td class="bgColor2"><b>' . htmlspecialchars($tmpl->templateTitles[current($tmpl->clearList_setup)]) . '</b></td></tr>
+ 						<tr>
+ 							<td><img src=clear.gif width=3 height=1></td>
+-							<td class="bgColor2"><table border=0 cellpadding=0 cellspacing=0 class="bgColor4" width="100%"><tr><td nowrap>'.$tmpl->ext_outputTS(array($val),$this->pObj->MOD_SETTINGS["ts_analyzer_checkLinenum"],$this->pObj->MOD_SETTINGS["ts_analyzer_checkComments"],$this->pObj->MOD_SETTINGS["ts_analyzer_checkCrop"],$this->pObj->MOD_SETTINGS["ts_analyzer_checkSyntax"],$this->pObj->MOD_SETTINGS["ts_analyzer_checkSyntaxBlockmode"]).'</td></tr></table>
++							<td class="bgColor2"><table border=0 cellpadding=0 cellspacing=0 class="bgColor4" width="100%"><tr><td nowrap="nowrap">' . $tmpl->ext_outputTS(array($val), $this->pObj->MOD_SETTINGS['ts_analyzer_checkLinenum'], $this->pObj->MOD_SETTINGS['ts_analyzer_checkComments'], $this->pObj->MOD_SETTINGS['ts_analyzer_checkCrop'], $this->pObj->MOD_SETTINGS['ts_analyzer_checkSyntax'], $this->pObj->MOD_SETTINGS['ts_analyzer_checkSyntaxBlockmode']) . '</td></tr></table>
+ 							</td>
+ 						</tr>
+ 					';
+Index: typo3/sysext/t3editor/class.tx_t3editor.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/t3editor/class.tx_t3editor.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/t3editor/class.tx_t3editor.php	(Revision 8437)
+@@ -167,6 +167,7 @@
+ 			$this->editorCounter++;
+ 
+ 			$class .= ' t3editor';
++			$alt = htmlspecialchars($alt);
+ 			if (!empty($alt)) {
+ 				$alt = ' alt="' . $alt . '"';
+ 			}
+Index: typo3/sysext/cms/layout/db_new_content_el.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/cms/layout/db_new_content_el.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/cms/layout/db_new_content_el.php	(Revision 8437)
+@@ -190,7 +190,7 @@
+ 			// Setting internal vars:
+ 		$this->id = intval(t3lib_div::_GP('id'));
+ 		$this->sys_language = intval(t3lib_div::_GP('sys_language_uid'));
+-		$this->R_URI = t3lib_div::_GP('returnUrl');
++		$this->R_URI = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
+ 		$this->colPos = t3lib_div::_GP('colPos');
+ 		$this->uid_pid = intval(t3lib_div::_GP('uid_pid'));
+ 
+Index: typo3/sysext/cms/tslib/class.tslib_fe.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/cms/tslib/class.tslib_fe.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/cms/tslib/class.tslib_fe.php	(Revision 8437)
+@@ -1659,8 +1659,9 @@
+ 				} else {
+ 					$message = 'You logged out from Workspace preview mode. Click this link to <a href="%1$s">go back to the website</a>';
+ 				}
++				$returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::_GET('returnUrl'));
+ 				die(sprintf($message,
+-					htmlspecialchars(ereg_replace('\&?ADMCMD_prev=[[:alnum:]]+','',t3lib_div::_GET('returnUrl')))
++					htmlspecialchars(ereg_replace('\&?ADMCMD_prev=[[:alnum:]]+','', $returnUrl))
+ 					));
+ 			}
+ 
+@@ -2519,19 +2520,21 @@
+ 	function jumpUrl()	{
+ 		if ($this->jumpurl)	{
+ 			if (t3lib_div::_GP('juSecure'))	{
++				$locationData = t3lib_div::_GP('locationData');
++				$mimeType = t3lib_div::_GP('mimeType');
++
+ 				$hArr = array(
+ 					$this->jumpurl,
+ 					t3lib_div::_GP('locationData'),
++					t3lib_div::_GP('mimeType'),
+ 					$this->TYPO3_CONF_VARS['SYS']['encryptionKey']
+ 				);
+ 				$calcJuHash=t3lib_div::shortMD5(serialize($hArr));
+-				$locationData = t3lib_div::_GP('locationData');
+ 				$juHash = t3lib_div::_GP('juHash');
+ 				if ($juHash == $calcJuHash)	{
+ 					if ($this->locDataCheck($locationData))	{
+ 						$this->jumpurl = rawurldecode($this->jumpurl);	// 211002 - goes with cObj->filelink() rawurlencode() of filenames so spaces can be allowed.
+ 						if (@is_file($this->jumpurl))	{
+-							$mimeType = t3lib_div::_GP('mimeType');
+ 							$mimeType = $mimeType ? $mimeType : 'application/octet-stream';
+ 							header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+ 							header('Content-Type: '.$mimeType);
+Index: typo3/sysext/cms/tslib/class.tslib_content.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/cms/tslib/class.tslib_content.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/cms/tslib/class.tslib_content.php	(Revision 8437)
+@@ -1919,6 +1919,15 @@
+ 					break;
+ 					case 'hidden':
+ 						$value = trim($parts[2]);
++
++							// If this form includes an auto responder message, include a HMAC checksum field
++							// in order to verify potential abuse of this feature.
++						if (strlen($value) && t3lib_div::inList($confData['fieldname'], 'auto_respond_msg')) {
++							$hmacChecksum = t3lib_div::hmac($value);
++							$hiddenfields .= sprintf('<input type="hidden" name="auto_respond_checksum" id="%sauto_respond_checksum" value="%s" />',
++												$prefix, $hmacChecksum);
++						}
++
+ 						if (strlen($value) && t3lib_div::inList('recipient_copy,recipient',$confData['fieldname']) && $GLOBALS['TYPO3_CONF_VARS']['FE']['secureFormmail'])	{
+ 							break;
+ 						}
+@@ -3978,7 +3987,9 @@
+ 			while(list(,$v)=each($mimeTypes))	{
+ 				$parts = explode('=',$v,2);
+ 				if (strtolower($fI['extension']) == strtolower(trim($parts[0])))	{
+-					$mimetype = '&mimeType='.rawurlencode(trim($parts[1]));
++					$mimetypeValue = trim($parts[1]);
++					$mimetype = '&mimeType=' . rawurlencode($mimetypeValue);
++					break;
+ 				}
+ 			}
+ 		}
+@@ -3987,6 +3998,7 @@
+ 		$hArr = array(
+ 			$jumpUrl,
+ 			$locationData,
++			$mimetypeValue,
+ 			$GLOBALS['TSFE']->TYPO3_CONF_VARS['SYS']['encryptionKey']
+ 		);
+ 		$juHash='&juHash='.t3lib_div::shortMD5(serialize($hArr));
+Index: typo3/sysext/version/cm1/index.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/version/cm1/index.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/version/cm1/index.php	(Revision 8437)
+@@ -194,7 +194,7 @@
+ 			// Setting module configuration:
+ 		$this->MCONF = $GLOBALS['MCONF'];
+ 
+-		$this->REQUEST_URI = str_replace('&sendToReview=1','',t3lib_div::getIndpEnv('REQUEST_URI'));
++		$this->REQUEST_URI = str_replace('&sendToReview=1','', t3lib_div::sanitizeLocalUrl(t3lib_div::getIndpEnv('REQUEST_URI')));
+ 
+ 			// Draw the header.
+ 		$this->doc = t3lib_div::makeInstance('template');
+@@ -352,7 +352,8 @@
+ 
+ 				// If access to Web>List for user, then link to that module.
+ 			if ($BE_USER->check('modules','web_list'))	{
+-				$href = $BACK_PATH . 'db_list.php?id=' . $this->pageinfo['uid'] . '&returnUrl=' . rawurlencode(t3lib_div::getIndpEnv('REQUEST_URI'));
++				$returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::getIndpEnv('REQUEST_URI'));
++				$href = $BACK_PATH . 'db_list.php?id=' . $this->pageinfo['uid'] . '&returnUrl=' . rawurlencode($returnUrl);
+ 				$buttons['record_list'] = '<a href="' . htmlspecialchars($href) . '">' .
+ 						'<img' . t3lib_iconWorks::skinImg($BACK_PATH, 'gfx/list.gif') . ' title="' . $GLOBALS['LANG']->sL('LLL:EXT:lang/locallang_core.php:labels.showList', 1) . '" alt="" />' .
+ 						'</a>';
+@@ -807,7 +808,8 @@
+ 			$table = '<table border="0" cellpadding="0" cellspacing="1" class="lrPadding workspace-overview">'.implode('',$tableRows).'</table>';
+ 		} else $table = '';
+ 
+-		$linkBack = t3lib_div::_GP('returnUrl') ? '<a href="'.htmlspecialchars(t3lib_div::_GP('returnUrl')).'" class="typo3-goBack"><img'.t3lib_iconWorks::skinImg($this->doc->backPath,'gfx/goback.gif','width="14" height="14"').' alt="" />Click here to go back</a><br/><br/>' : '';
++		$returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
++		$linkBack = $returnUrl ? '<a href="'.htmlspecialchars($returnUrl).'" class="typo3-goBack"><img'.t3lib_iconWorks::skinImg($this->doc->backPath,'gfx/goback.gif','width="14" height="14"').' alt="" />Click here to go back</a><br/><br/>' : '';
+ 		$resetDiffOnly = $this->diffOnly ? '<a href="index.php?id='.intval($this->id).'" class="typo3-goBack">Show all information</a><br/><br/>' : '';
+ 
+ 		$versionSelector = $GLOBALS['BE_USER']->workspace ? $this->doc->getVersionSelector($this->id) : '';
+Index: typo3/sysext/setup/mod/index.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/setup/mod/index.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/setup/mod/index.php	(Revision 8437)
+@@ -349,7 +349,7 @@
+ 		if ($displayFullText) {
+ 			$code[$i++][1] = $this->getCSH('emailMeAtLogin');
+ 		}
+-		$code[$i][1] = $this->setLabel('emailMeAtLogin').($BE_USER->user['email'] ? ' ('.$BE_USER->user['email'].')' : '');
++		$code[$i][1] = $this->setLabel('emailMeAtLogin') . ($BE_USER->user['email'] ? ' (' . htmlspecialchars($BE_USER->user['email']) . ')' : '');
+ 		$code[$i][2] = '<input id="field_emailMeAtLogin" type="checkbox" name="data[emailMeAtLogin]"'.($BE_USER->uc['emailMeAtLogin']?' checked="checked"':'').' />';
+ 		$code[$i++][3] = $displayFullText ? '&nbsp;' : $this->getCSH('emailMeAtLogin');
+ 
+Index: typo3/sysext/impexp/app/index.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/impexp/app/index.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/impexp/app/index.php	(Revision 8437)
+@@ -1427,7 +1427,7 @@
+ 					'preset_data' => serialize($inData)
+ 				);
+ 				$GLOBALS['TYPO3_DB']->exec_INSERTquery('tx_impexp_presets',$fields_values);
+-				$msg = 'New preset "'.$inData['preset']['title'].'" is created';
++				$msg = 'New preset "' . htmlspecialchars($inData['preset']['title']) . '" is created';
+ 			}
+ 		}
+ 
+Index: typo3/sysext/indexed_search/mod/index.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/indexed_search/mod/index.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/indexed_search/mod/index.php	(Revision 8437)
+@@ -439,7 +439,7 @@
+ 		reset($arr);
+ 		$list=array();
+ 		while(list($k,$v)=each($arr))	{
+-			$list[]=$k."=".$v;
++			$list[] = htmlspecialchars($k) . '=' . htmlspecialchars($v);
+ 		}
+ 		return implode("<BR>",$list);
+ 	}
+Index: typo3/sysext/indexed_search/modfunc1/class.tx_indexedsearch_modfunc1.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/indexed_search/modfunc1/class.tx_indexedsearch_modfunc1.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/indexed_search/modfunc1/class.tx_indexedsearch_modfunc1.php	(Revision 8437)
+@@ -276,7 +276,7 @@
+ 			$code.= $this->indexed_info(
+ 						$data['row'],
+ 						$data['HTML'].
+-							$this->showPageDetails(t3lib_div::fixed_lgd_cs($data['row']['title'], 20),$data['row']['uid'])
++							$this->showPageDetails(t3lib_BEfunc::getRecordTitlePrep($data['row']['title']), $data['row']['uid'])
+ 					);
+ 		}
+ 
+Index: typo3/sysext/install/mod/class.tx_install.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/install/mod/class.tx_install.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/install/mod/class.tx_install.php	(Revision 8437)
+@@ -269,7 +269,7 @@
+ 		} else {
+ 			$this->step = intval(t3lib_div::_GP('step'));
+ 		}
+-		$this->redirect_url = t3lib_div::_GP('redirect_url');
++		$this->redirect_url = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('redirect_url'));
+ 
+ 		$this->INSTALL['type'] = '';
+ 		if ($_GET['TYPO3_INSTALL']['type']) {
+@@ -4931,7 +4931,7 @@
+ 					<tr>
+ 						<td bgcolor="#F4F0E8">
+ 						<div align="center"><span class="size4text"><strong>TYPO3 '.TYPO3_branch.' Install Tool</strong></span></div>
+-						<div align="center"><span style="color:navy;"><strong>Site: '.$GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename'].'</strong></span></div>
++						<div align="center"><span style="color:navy;"><strong>Site: ' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename']) . '</strong></span></div>
+ 						'.($this->passwordOK ? '<div align="center"><span style="color:navy;"><strong>Version: '.TYPO3_version.'</strong></span></div>':'').'<br />
+ 
+ '.($this->step?$this->stepHeader():$this->menu()).$content.'<hr />'.$this->note123().$this->endNotes().'
+Index: typo3/sysext/install/mod/class.tx_install_eid.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/install/mod/class.tx_install_eid.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/install/mod/class.tx_install_eid.php	(Revision 8437)
+@@ -104,9 +104,8 @@
+ 	 * @return string
+ 	 */
+ 	function createEncryptionKey($keyLength = 96) {
+-		
+-		$bytes = t3lib_div::generateRandomBytes($keyLength);
+-		return substr(bin2hex($bytes), -96);
++
++		return t3lib_div::getRandomHexString($keyLength);
+ 	}
+ }
+ // Make instance:
+Index: typo3/sysext/install/mod/class.tx_install_session.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/install/mod/class.tx_install_session.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/install/mod/class.tx_install_session.php	(Revision 8437)
+@@ -136,7 +136,8 @@
+ 	 */
+ 	public function startSession() {
+ 		$_SESSION['created'] = time();
+-		return session_id();
++			// Be sure to use our own session id, so create a new one
++		return $this->renewSession();
+ 	}
+ 
+ 	/**
+@@ -202,6 +203,8 @@
+ 		$_SESSION['lastSessionId'] = time();
+ 		$_SESSION['tstamp'] = time();
+ 		$_SESSION['expires'] = (time() + ($this->expireTimeInMinutes*60));
++			// Renew the session id to avoid session fixation
++		$this->renewSession();
+ 	}
+ 
+ 	/**
+Index: typo3/sysext/rtehtmlarea/mod3/class.tx_rtehtmlarea_browse_links.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/rtehtmlarea/mod3/class.tx_rtehtmlarea_browse_links.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/rtehtmlarea/mod3/class.tx_rtehtmlarea_browse_links.php	(Revision 8437)
+@@ -120,6 +120,8 @@
+ 	 * @return	string		Wrapping title string.
+ 	 */
+ 	function wrapTitle($title,$v)	{
++		$title = htmlspecialchars($title);
++		
+ 		if ($this->ext_isLinkable($v))	{
+ 			$aOnClick = 'return jumpToUrl(\''.$this->thisScript.'?act='.$GLOBALS['SOBE']->browser->act.'&editorNo='.$GLOBALS['SOBE']->browser->editorNo.'&contentTypo3Language='.$GLOBALS['SOBE']->browser->contentTypo3Language.'&contentTypo3Charset='.$GLOBALS['SOBE']->browser->contentTypo3Charset.'&mode='.$GLOBALS['SOBE']->browser->mode.'&expandFolder='.rawurlencode($v['path']).'\');';
+ 			return '<a href="#" onclick="'.htmlspecialchars($aOnClick).'">'.$title.'</a>';
+@@ -497,6 +499,9 @@
+ ';
+ 
+ 		if ($this->mode=='wizard')	{	// Functions used, if the link selector is in wizard mode (= TCEforms fields)
++			if (!$this->areFieldChangeFunctionsValid()) {
++				$this->P['fieldChangeFunc'] = array();
++			}
+ 			unset($this->P['fieldChangeFunc']['alert']);
+ 			reset($this->P['fieldChangeFunc']);
+ 			$update='';
+Index: typo3/sysext/rtehtmlarea/mod4/class.tx_rtehtmlarea_select_image.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/rtehtmlarea/mod4/class.tx_rtehtmlarea_select_image.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/rtehtmlarea/mod4/class.tx_rtehtmlarea_select_image.php	(Revision 8437)
+@@ -56,6 +56,8 @@
+ 	 * @return	string		Wrapping title string.
+ 	 */
+ 	function wrapTitle($title,$v)	{
++		$title = htmlspecialchars($title);
++		
+ 		if ($this->ext_isLinkable($v))	{
+ 			$aOnClick = 'return jumpToUrl(\'?editorNo='.$GLOBALS['SOBE']->browser->editorNo.'&expandFolder='.rawurlencode($v['path']).'\');';
+ 			return '<a href="#" onclick="'.htmlspecialchars($aOnClick).'">'.$title.'</a>';
+Index: typo3/sysext/sys_action/class.tx_sysaction.php
+===================================================================
+--- typo3_src-4.2.12/typo3/sysext/sys_action/class.tx_sysaction.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/sysext/sys_action/class.tx_sysaction.php	(Revision 8437)
+@@ -123,7 +123,7 @@
+ 							$res = $GLOBALS['TYPO3_DB']->exec_SELECTquery('*', 'be_users', 'pid=0 AND cruser_id='.intval($this->BE_USER->user['uid']).' AND createdByAction='.intval($actionRow['uid']).t3lib_BEfunc::deleteClause('be_users'), '', 'username');
+ 							$lines = array();
+ 							while($uRow = $GLOBALS['TYPO3_DB']->sql_fetch_assoc($res))	{
+-								$lines[] = "<nobr>".($uRow["uid"]==$userRecord["uid"]?"<b>":"").$this->action_linkUserName(t3lib_iconworks::getIconImage("be_users",$uRow,$this->backPath,'title="uid='.$uRow["uid"].'" hspace="2" align="top"').$uRow["username"]." (".$uRow["realName"].")".($uRow["uid"]==$userRecord["uid"]?"</b>":"")."</nobr>",$actionRow["uid"],$uRow["uid"])."<br>";
++								$lines[] = '<nobr>' . ($uRow['uid'] == $userRecord['uid'] ? '<strong>' : '') . $this->action_linkUserName(t3lib_iconworks::getIconImage('be_users', $uRow, $this->backPath, 'title="uid=' . $uRow['uid'] . '" hspace="2" align="top"') . htmlspecialchars($uRow['username']) . ' (' . htmlspecialchars($uRow['realName']) . ')' . ($uRow['uid'] == $userRecord['uid'] ? '</strong>' : '') . '</nobr>', $actionRow['uid'], $uRow['uid']) . '<br />';
+ 							}
+ 							if (count($lines))	{
+ 								$theCode.= $this->pObj->doc->section($LANG->getLL("action_t1_listOfUsers"),implode("",$lines),0,1);
+@@ -167,7 +167,7 @@
+ 								} else {
+ 									$p.= $LANG->getLL("lNone");
+ 								}
+-								$actionContent.=t3lib_iconworks::getIconImage("be_users",$userRecord,$this->backPath,'title="'.htmlspecialchars($p).'" hspace=2 align=top').$userRecord["username"]." (".$userRecord["realName"].")";
++								$actionContent .= t3lib_iconworks::getIconImage('be_users', $userRecord, $this->backPath, 'title="' . htmlspecialchars($p) . '" hspace="2" align="top"') . htmlspecialchars($userRecord['username']) . ' (' . htmlspecialchars($userRecord['realName']) . ')';
+ 							}
+ 							$actionContent.=$this->pObj->doc->table($formA);
+ 							$theCode.= $this->pObj->doc->section($LANG->getLL($newFlag?"action_Create":"action_Update"),$actionContent,0,1);
+Index: typo3/db_list.php
+===================================================================
+--- typo3_src-4.2.12/typo3/db_list.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/db_list.php	(Revision 8437)
+@@ -144,7 +144,7 @@
+ 		$this->search_field = t3lib_div::_GP('search_field');
+ 		$this->search_levels = t3lib_div::_GP('search_levels');
+ 		$this->showLimit = t3lib_div::_GP('showLimit');
+-		$this->returnUrl = t3lib_div::_GP('returnUrl');
++		$this->returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
+ 
+ 		$this->clear_cache = t3lib_div::_GP('clear_cache');
+ 		$this->cmd = t3lib_div::_GP('cmd');
+Index: typo3/file_upload.php
+===================================================================
+--- typo3_src-4.2.12/typo3/file_upload.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/file_upload.php	(Revision 8437)
+@@ -117,7 +117,7 @@
+ 			// Initialize GPvars:
+ 		$this->number = t3lib_div::_GP('number');
+ 		$this->target = t3lib_div::_GP('target');
+-		$this->returnUrl = t3lib_div::_GP('returnUrl');
++		$this->returnUrl = t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
+ 		$this->returnUrl = $this->returnUrl ? $this->returnUrl : t3lib_div::getIndpEnv('TYPO3_SITE_URL').TYPO3_mainDir.'file_list.php?id='.rawurlencode($this->target);
+ 
+ 		if (empty($this->number))	{
+Index: typo3/move_el.php
+===================================================================
+--- typo3_src-4.2.12/typo3/move_el.php	(Revision 8247)
++++ typo3_src-4.2.13/typo3/move_el.php	(Revision 8437)
+@@ -260,7 +260,7 @@
+ 		$this->sys_language = intval(t3lib_div::_GP('sys_language'));
+ 		$this->page_id=intval(t3lib_div::_GP('uid'));
+ 		$this->table=t3lib_div::_GP('table');
+-		$this->R_URI=t3lib_div::_GP('returnUrl');
++		$this->R_URI=t3lib_div::sanitizeLocalUrl(t3lib_div::_GP('returnUrl'));
+ 		$this->input_moveUid = t3lib_div::_GP('moveUid');
+ 		$this->moveUid = $this->input_moveUid ? $this->input_moveUid : $this->page_id;
+ 		$this->makeCopy = t3lib_div::_GP('makeCopy');

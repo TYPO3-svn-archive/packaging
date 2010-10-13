@@ -1,4 +1,28 @@
-typo3-src (4.2.5-1+lenny3) lenny-security; urgency=high
+typo3-src (4.2.5-1+lenny6) stable-security; urgency=high
+
+  * Security patch from new upstream release 4.2.15:
+    - fixes: "TYPO3 Security Bulletin TYPO3-SA-2010-020: Multiple
+      vulnerabilities in TYPO3 Core" (Closes: 599334)
+
+ -- Christian Welzel <gawain@camlann.de>  Fri, 08 Oct 2010 22:00:00 +0200 
+
+typo3-src (4.2.5-1+lenny5) stable-security; urgency=high
+
+  * Added a patch to fix a regression introduced during last security
+    patch. The last patch renders the backend unusable. Thanks to
+    Fabian Ruff <fabian@progra.de> (Closes: 595099).
+
+ -- Christian Welzel <gawain@camlann.de>  Fri, 06 Aug 2010 23:30:00 +0200
+
+typo3-src (4.2.5-1+lenny4) stable-security; urgency=high
+
+  * Added patches (backported from 4.2.13 and 4.2.14) to fix the security issues
+    from "TYPO3-SA-2010-012: Multiple vulnerabilities in TYPO3 Core"
+    (Closes: 590719).
+
+ -- Christian Welzel <gawain@camlann.de>  Fri, 06 Aug 2010 23:30:00 +0200
+
+typo3-src (4.2.5-1+lenny3) stable-security; urgency=high
 
   * Added patches (backported from 4.2.12) to fix the security issues
     from "TYPO3-SA-2010-004: Multiple vulnerabilities in TYPO3 Core"

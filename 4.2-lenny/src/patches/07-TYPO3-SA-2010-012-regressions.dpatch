@@ -1,0 +1,308 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 07-TYPO3-SA-2010-012-regressions.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: Fixes some regressions that were introduced with the patches
+## DP: for TYPO3-SA-2010-012 (by upstream) (taken from svn tag TYPO3_4-2-14
+## DP: revisions 8467:8491)
+
+@DPATCH@
+
+Index: t3lib/class.t3lib_browsetree.php
+===================================================================
+--- typo3_src-4.2.13/t3lib/class.t3lib_browsetree.php	(Revision 8466)
++++ typo3_src-4.2.14/t3lib/class.t3lib_browsetree.php	(Revision 8491)
+@@ -163,7 +163,7 @@
+ 			$rows = $GLOBALS['TYPO3_DB']->exec_SELECTgetRows('domainName,sorting', 'sys_domain',
+ 						'pid=' . $GLOBALS['TYPO3_DB']->quoteStr($row['uid'], 'sys_domain'), '', 'sorting', 1);
+ 			if (is_array($rows) && count($rows) > 0) {
+-				$title = sprintf('%s [%s]', $title, $rows[0]['domainName']);
++				$title = sprintf('%s [%s]', $title, htmlspecialchars($rows[0]['domainName']));
+ 			}
+ 		}
+ 		return $title;
+Index: typo3/class.browse_links.php
+===================================================================
+--- typo3_src-4.2.13/typo3/class.browse_links.php	(Revision 8466)
++++ typo3_src-4.2.14/typo3/class.browse_links.php	(Revision 8491)
+@@ -435,8 +435,6 @@
+ 	 * @return	string		Wrapping title string.
+ 	 */
+ 	function wrapTitle($title,$v,$ext_pArrPages)	{
+-		$title = htmlspecialchars($title);
+-
+ 		if ($ext_pArrPages)	{
+ 			$ficon=t3lib_iconWorks::getIcon('pages',$v);
+ 			$onClick = "return insertElement('pages', '".$v['uid']."', 'db', ".t3lib_div::quoteJSvalue($v['title']).", '', '', '".$ficon."','',1);";
+@@ -484,8 +482,6 @@
+ 	 * @return	string		Wrapping title string.
+ 	 */
+ 	function wrapTitle($title,$v)	{
+-		$title = htmlspecialchars($title);
+-
+ 		if ($this->ext_isLinkable($v))	{
+ 			$aOnClick = 'return jumpToUrl(\''.$this->thisScript.'?act='.$GLOBALS['SOBE']->browser->act.'&mode='.$GLOBALS['SOBE']->browser->mode.'&expandFolder='.rawurlencode($v['path']).'\');';
+ 			return '<a href="#" onclick="'.htmlspecialchars($aOnClick).'">'.$title.'</a>';
+@@ -569,7 +565,7 @@
+ 				// Put table row with folder together:
+ 			$out.='
+ 				<tr class="'.$bgColorClass.'">
+-					<td nowrap="nowrap">'.$v['HTML'].$this->wrapTitle(t3lib_div::fixed_lgd_cs($v['row']['title'],$titleLen),$v['row']).'</td>
++					<td nowrap="nowrap">' . $v['HTML'] . $this->wrapTitle(htmlspecialchars(t3lib_div::fixed_lgd_cs($v['row']['title'], $titleLen)), $v['row']) . '</td>
+ 					'.$arrCol.'
+ 					<td>'.$cEbullet.'</td>
+ 				</tr>';
+@@ -638,8 +634,6 @@
+ 	 * @return	string		Wrapping title string.
+ 	 */
+ 	function wrapTitle($title,$v)	{
+-		$title = htmlspecialchars($title);
+-
+ 		if ($this->ext_isLinkable($v))	{
+ 			$aOnClick = 'return jumpToUrl(\''.$this->thisScript.'?act='.$GLOBALS['SOBE']->browser->act.'&mode='.$GLOBALS['SOBE']->browser->mode.'&expandFolder='.rawurlencode($v['path']).'\');';
+ 			return '<a href="#" onclick="'.htmlspecialchars($aOnClick).'">'.$title.'</a>';
+@@ -932,7 +926,7 @@
+ 		';
+ 
+ 		if ($this->mode == 'wizard')	{	// Functions used, if the link selector is in wizard mode (= TCEforms fields)
+-			if (!$this->areFieldChangeFunctionsValid()) {
++			if (!$this->areFieldChangeFunctionsValid() && !$this->areFieldChangeFunctionsValid(TRUE)) {
+ 				$this->P['fieldChangeFunc'] = array();
+ 			}
+ 			unset($this->P['fieldChangeFunc']['alert']);
+@@ -947,6 +941,7 @@
+ 			$P2['itemName']=$this->P['itemName'];
+ 			$P2['formName']=$this->P['formName'];
+ 			$P2['fieldChangeFunc']=$this->P['fieldChangeFunc'];
++			$P2['fieldChangeFuncHash'] = t3lib_div::hmac(serialize($this->P['fieldChangeFunc']));
+ 			$P2['params']['allowedExtensions']=$this->P['params']['allowedExtensions'];
+ 			$P2['params']['blindLinkOptions']=$this->P['params']['blindLinkOptions'];
+ 			$addPassOnParams.=t3lib_div::implodeArrayForUrl('P',$P2);
+@@ -2773,13 +2768,33 @@
+ 	 * Determines whether submitted field change functions are valid
+ 	 * and are coming from the system and not from an external abuse.
+ 	 *
++	 * @param boolean $allowFlexformSections Whether to handle flexform sections differently
+ 	 * @return boolean Whether the submitted field change functions are valid
+ 	 */
+-	protected function areFieldChangeFunctionsValid() {
+-		return (
+-			isset($this->P['fieldChangeFunc']) && is_array($this->P['fieldChangeFunc']) && isset($this->P['fieldChangeFuncHash'])
+-			&& $this->P['fieldChangeFuncHash'] == t3lib_div::hmac(serialize($this->P['fieldChangeFunc']))
+-		);
++	protected function areFieldChangeFunctionsValid($handleFlexformSections = FALSE) {
++		$result = FALSE;
++
++		if (isset($this->P['fieldChangeFunc']) && is_array($this->P['fieldChangeFunc']) && isset($this->P['fieldChangeFuncHash'])) {
++			$matches = array();
++			$pattern = '#\[el\]\[(([^]-]+-[^]-]+-)(idx\d+-)([^]]+))\]#i';
++
++			$fieldChangeFunctions = $this->P['fieldChangeFunc'];
++
++				// Special handling of flexform sections:
++				// Field change functions are modified in JavaScript, thus the hash is always invalid
++			if ($handleFlexformSections && preg_match($pattern, $this->P['itemName'], $matches)) {
++				$originalName = $matches[1];
++				$cleanedName = $matches[2] . $matches[4];
++
++				foreach ($fieldChangeFunctions as &$value) {
++					$value = str_replace($originalName, $cleanedName, $value);
++				}
++			}
++
++			$result = ($this->P['fieldChangeFuncHash'] === t3lib_div::hmac(serialize($fieldChangeFunctions)));
++		}
++
++		return $result;
+ 	}
+ }
+ 
+Index: typo3/sysext/felogin/pi1/class.tx_felogin_pi1.php
+===================================================================
+--- typo3_src-4.2.13/typo3/sysext/felogin/pi1/class.tx_felogin_pi1.php	(Revision 8466)
++++ typo3_src-4.2.14/typo3/sysext/felogin/pi1/class.tx_felogin_pi1.php	(Revision 8491)
+@@ -626,20 +626,17 @@
+ 			return '';
+ 		}
+ 
+-		$sanitizedUrl = t3lib_div::removeXSS(rawurldecode($url));
+-		if ($url !== $sanitizedUrl) {
++		$decodedUrl = rawurldecode($url);
++		$sanitizedUrl = t3lib_div::removeXSS($decodedUrl);
++
++		if ($decodedUrl !== $sanitizedUrl || preg_match('#["<>\\\]+#', $url)) {
+ 			t3lib_div::sysLog(sprintf($this->pi_getLL('xssAttackDetected'), $url), 'felogin', t3lib_div::SYSLOG_SEVERITY_WARNING);
+ 			return '';
+ 		}
+ 
+-		if (!t3lib_div::isValidUrl($sanitizedUrl)) {
+-			t3lib_div::sysLog(sprintf($this->pi_getLL('noValidRedirectUrl'), $sanitizedUrl), 'felogin', t3lib_div::SYSLOG_SEVERITY_WARNING);
+-			return '';
+-		}
+-
+ 			// Validate the URL:
+-		if ($this->isInCurrentDomain($sanitizedUrl) || $this->isInLocalDomain($sanitizedUrl)) {
+-			return $sanitizedUrl;
++		if ($this->isRelativeUrl($url) || $this->isInCurrentDomain($url) || $this->isInLocalDomain($url)) {
++			return $url;
+ 		}
+ 
+ 			// URL is not allowed
+@@ -655,39 +652,61 @@
+ 	 * @return boolean Whether the URL belongs to the current TYPO3 installation
+ 	 */
+ 	protected function isInCurrentDomain($url) {
+-		return (t3lib_div::isOnCurrentHost($url) && strpos($url, t3lib_div::getIndpEnv('TYPO3_SITE_URL')) === 0);
++		return (t3lib_div::isOnCurrentHost($url) && t3lib_div::isFirstPartOfStr($url, t3lib_div::getIndpEnv('TYPO3_SITE_URL')));
+ 	}
+ 
+ 	/**
+ 	 * Determines whether the URL matches a domain
+ 	 * in the sys_domain databse table.
+ 	 *
+-	 * @param string $domain Name of the domain to be looked up
+-	 * @return boolean Whether the domain name is considered to be local
++	 * @param string $url Absolute URL which needs to be checked
++	 * @return boolean Whether the URL is considered to be local
+ 	 */
+ 	protected function isInLocalDomain($url) {
+ 		$result = FALSE;
+ 
+-		$parsedUrl = parse_url($url);
+-		$domain = $parsedUrl['host'] . $parsedUrl['path'];
++		if (t3lib_div::isValidUrl($url)) {
++			$parsedUrl = parse_url($url);
++			if ($parsedUrl['scheme'] === 'http' || $parsedUrl['scheme'] === 'https' ) {
++				$host = $parsedUrl['host'];
++					// Removes the last path segment and slash sequences like /// (if given):
++				$path = preg_replace('#/+[^/]*$#', '', $parsedUrl['path']);
+ 
+-		$localDomains = $GLOBALS['TYPO3_DB']->exec_SELECTgetRows(
+-			'domainName',
+-			'sys_domain',
+-			'1=1' . $this->cObj->enableFields('sys_domain')
+-		);
+-
+-		if (is_array($localDomains)) {
+-			foreach ($localDomains as $localDomain) {
+-				if (stripos($domain, $localDomain['domainName']) === 0) {
+-					$result = TRUE;
+-					break;
++				$localDomains = $GLOBALS['TYPO3_DB']->exec_SELECTgetRows(
++					'domainName',
++					'sys_domain',
++					'1=1' . $this->cObj->enableFields('sys_domain')
++				);
++				if (is_array($localDomains)) {
++					foreach ($localDomains as $localDomain) {
++							// strip trailing slashes (if given)
++						$domainName = rtrim($localDomain['domainName'], '/');
++						if (t3lib_div::isFirstPartOfStr($host. $path . '/', $domainName . '/')) {
++							$result = TRUE;
++							break;
++						}
++					}
+ 				}
+ 			}
+ 		}
+-
+ 		return $result;
+ 	}
++
++	/**
++	 * Determines wether the URL is relative to the
++	 * current TYPO3 installation.
++	 *
++	 * @param string $url URL which needs to be checked
++	 * @return boolean Whether the URL is considered to be relative
++	 */
++	protected function isRelativeUrl($url) {
++		$parsedUrl = @parse_url($url);
++		if ($parsedUrl !== FALSE && !isset($parsedUrl['scheme']) && !isset($parsedUrl['host'])) {
++				// If the relative URL starts with a slash, we need to check if it's within the current site path
++			return (!t3lib_div::isFirstPartOfStr($parsedUrl['path'], '/') || t3lib_div::isFirstPartOfStr($parsedUrl['path'], t3lib_div::getIndpEnv('TYPO3_SITE_PATH')));
++		}
++		return FALSE;
++	}
+ }
+ 
+ 
+Index: typo3/sysext/install/mod/class.tx_install.php
+===================================================================
+--- typo3_src-4.2.13/typo3/sysext/install/mod/class.tx_install.php	(Revision 8466)
++++ typo3_src-4.2.14/typo3/sysext/install/mod/class.tx_install.php	(Revision 8491)
+@@ -311,7 +311,11 @@
+ 			die('Install Tool needs to write to typo3temp/. Make sure this directory is writeable by your webserver: '. $this->typo3temp_path);
+ 		}
+ 
+-		$this->session = t3lib_div::makeInstance('tx_install_session');
++		try {
++			$this->session = t3lib_div::makeInstance('tx_install_session');
++		} catch (Exception $exception) {
++			$this->outputErrorAndExit($exception->getMessage());
++		}
+ 
+ 			// *******************
+ 			// Check authorization
+@@ -3863,7 +3867,7 @@
+ 
+ 									$this->isBasicComplete($headCode);
+ 
+-									if ($result) {					
++									if ($result) {
+ 										$this->message($headCode,'User created','
+ 											Username: <strong>'.htmlspecialchars($username).'</strong><br />
+ 											Password: <strong>'.htmlspecialchars($pass).'</strong><br />',
+@@ -4948,6 +4952,23 @@
+ 	}
+ 
+ 	/**
++	 * Outputs an error and dies.
++	 * Should be used by all errors that occur before even starting the install tool process.
++	 *
++	 * @param string The content of the error
++	 * @return void
++	 */
++	protected function outputErrorAndExit($content, $title = 'Install Tool error') {
++			// Output the warning message and exit
++		header('Content-Type: text/html; charset=utf-8');
++		header('Cache-Control: no-cache, must-revalidate');
++		header('Pragma: no-cache');
++		echo '<h1>'.$title.'</h1>';
++		echo $content;
++		exit();
++	}
++
++	/**
+ 	 * Sends the page to the client.
+ 	 *
+ 	 * @param	string		The HTML page
+Index: typo3/sysext/install/mod/class.tx_install_session.php
+===================================================================
+--- typo3_src-4.2.13/typo3/sysext/install/mod/class.tx_install_session.php	(Revision 8466)
++++ typo3_src-4.2.14/typo3/sysext/install/mod/class.tx_install_session.php	(Revision 8491)
+@@ -86,7 +86,7 @@
+ 		$sessionSavePath = $this->getSessionSavePath();
+ 		if (!is_dir($sessionSavePath)) {
+ 			if (!t3lib_div::mkdir($sessionSavePath)) {
+-				die('Could not create session folder in typo3temp/. Make sure it is writeable!');
++				throw new Exception('<p><strong>Could not create session folder in typo3temp/.</strong></p><p>Make sure it is writeable!</p>');
+ 			}
+ 			t3lib_div::writeFile($sessionSavePath.'/.htaccess', 'Order deny, allow'."\n".'Deny from all'."\n");
+ 			$indexContent = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">';
+@@ -113,6 +113,16 @@
+ 		if (version_compare(phpversion(), '5.2', '<')) {
+ 			ini_set('session.cookie_httponly', TRUE);
+ 		}
++		if (ini_get('session.auto_start')) {
++			$sessionCreationError = '<p><strong>Error: session.auto-start is enabled</strong></p>';
++			$sessionCreationError .= '<p>The PHP option session.auto-start is enabled. Disable this option in php.ini or .htaccess:</p>';
++			$sessionCreationError .= '<pre>php_value session.auto_start Off</pre>';
++			throw new Exception($sessionCreationError);
++		} else if (defined('SID')) {
++			$sessionCreationError = '<p><strong>Error: Session already started by session_start().</strong></p>';
++			$sessionCreationError .= '<p>Make sure no installed extension is starting a session in its ext_localconf.php or ext_tables.php.</p>';
++			throw new Exception($sessionCreationError);
++		}
+ 		session_start();
+ 	}
+ 

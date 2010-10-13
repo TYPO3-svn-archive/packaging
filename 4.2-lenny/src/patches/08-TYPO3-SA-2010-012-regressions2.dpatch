@@ -1,0 +1,224 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 08-TYPO3-SA-2010-012-regressions2.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: Fixes some regressions that were introduced with the patches
+## DP: for TYPO3-SA-2010-012 during backport of upstream patches.
+
+@DPATCH@
+
+--- old/t3lib/class.t3lib_div.php	2010-09-01 11:47:28.000000000 +0200
++++ new/t3lib/class.t3lib_div.php	2010-09-01 12:04:06.000000000 +0200
+@@ -390,7 +390,7 @@
+ 	 */
+ 	public function removeXSS($string)	{
+ 		require_once(PATH_typo3.'contrib/RemoveXSS/RemoveXSS.php');
+-		$string = RemoveXSS::RemoveXSS($string);
++		$string = RemoveXSS::process($string);
+ 		return $string;
+ 	}
+ 
+@@ -900,6 +900,17 @@
+ 	}
+ 
+ 	/**
++	 * Checks if a given URL matches the host that currently handles this HTTP request.
++	 * Scheme, hostname and (optional) port of the given URL are compared.
++	 *
++	 * @param	string		$url: URL to compare with the TYPO3 request host
++	 * @return	boolean		Whether the URL matches the TYPO3 request host
++	 */
++	public static function isOnCurrentHost($url) {
++		return (stripos($url . '/', self::getIndpEnv('TYPO3_REQUEST_HOST') . '/') === 0);
++	}
++
++	/**
+ 	 * Check for item in list
+ 	 * Check if an item exists in a comma-separated list of items.
+ 	 * Usage: 163
+@@ -1598,6 +1607,36 @@
+ 		return substr(bin2hex(self::generateRandomBytes(intval(($count + 1) / 2))), 0, $count);
+ 	}
+ 
++	/**
++	 * Checks if a given string is a Uniform Resource Locator (URL).
++	 *
++	 * @param	string		$url: The URL to be validated
++	 * @return	boolean		Whether the given URL is valid
++	 */
++	public static function isValidUrl($url) {
++		if (function_exists('filter_var')) {
++			return (filter_var($url, FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED) !== FALSE);
++		} else {
++			// See PHP's ext/filter/logical_filters.c php_filter_validate_url()
++			$parsed = @parse_url($url);
++			if (!is_array($parsed) || !isset($parsed['scheme'])) {
++				return FALSE;
++			}
++			$scheme = $parsed['scheme'];
++			if ($scheme == 'http' || $scheme == 'https') {
++				if (!isset($parsed['host']) || $parsed['host'] == '') {
++					return FALSE;
++				}
++				if (!preg_match('/^[\w\._]+$/', $parsed['host']) || preg_match('/\.$/', $parsed['host']) ) {
++					return FALSE;
++				}
++			}
++			if (!isset($parsed['host']) && !in_array($scheme, array('mailto', 'news', 'file'))) {
++				return FALSE;
++			}
++			return TRUE;
++		}
++	}
+ 
+ 
+ 
+@@ -1841,6 +1884,7 @@
+ 			} else {
+ 				$value = addslashes($value);
+ 			}
++			unset($value);
+ 		}
+ 		reset($theArray);
+ 	}
+@@ -1862,6 +1906,7 @@
+ 			} else {
+ 				$value = stripslashes($value);
+ 			}
++			unset($value);
+ 		}
+ 		reset($theArray);
+ 	}
+@@ -3381,10 +3428,12 @@
+ 		$parts = t3lib_div::getIndpEnv('SCRIPT_NAME');
+ 		$params = t3lib_div::_GET();
+ 
+-		foreach($getParams as $k => $v)	{
+-			if (strcmp($v,''))	{
+-				$params[$k]=$v;
+-			} else unset($params[$k]);
++		foreach ($getParams as $key => $value) {
++			if ($value !== '') {
++				$params[$key] = $value;
++			} else {
++				unset($params[$key]);
++			}
+ 		}
+ 
+		$pString = t3lib_div::implodeArrayForUrl('',$params);
+@@ -3476,6 +3525,7 @@
+ 				TYPO3_REQUEST_SCRIPT =  	[scheme]://[host][:[port]][path_script]
+ 				TYPO3_REQUEST_DIR =		[scheme]://[host][:[port]][path_dir]
+ 				TYPO3_SITE_URL = 		[scheme]://[host][:[port]][path_dir] of the TYPO3 website frontend
++				TYPO3_SITE_PATH = 		[path_dir] of the TYPO3 website frontend
+ 				TYPO3_SITE_SCRIPT = 		[script / Speaking URL] of the TYPO3 website
+ 				TYPO3_DOCUMENT_ROOT =		Absolute path of root of documents: TYPO3_DOCUMENT_ROOT.SCRIPT_NAME = SCRIPT_FILENAME (typically)
+ 				TYPO3_SSL = 			Returns TRUE if this session uses SSL/TLS (https)
+@@ -3645,6 +3695,9 @@
+ 					$retVal = $siteUrl;
+ 				}
+ 			break;
++			case 'TYPO3_SITE_PATH':
++				$retVal = substr(t3lib_div::getIndpEnv('TYPO3_SITE_URL'), strlen(t3lib_div::getIndpEnv('TYPO3_REQUEST_HOST')));
++			break;
+ 			case 'TYPO3_SITE_SCRIPT':
+ 				$retVal = substr(t3lib_div::getIndpEnv('TYPO3_REQUEST_URL'),strlen(t3lib_div::getIndpEnv('TYPO3_SITE_URL')));
+ 			break;
+@@ -3723,9 +3776,9 @@
+ 			$bInfo['BROWSER']= 'konqu';
+ 		} elseif (strpos($useragent,'Opera') !== false)	{
+ 			$bInfo['BROWSER']= 'opera';
+-		} elseif (preg_match('/MSIE [4567]/', $useragent))	{
++		} elseif (strpos($useragent, 'MSIE') !== false) {
+ 			$bInfo['BROWSER']= 'msie';
+-		} elseif (strpos($useragent,'Mozilla/4') !== false || strpos($useragent,'Mozilla/5') !== false)	{
++		} elseif (strpos($useragent, 'Mozilla') !== false) {
+ 			$bInfo['BROWSER']='net';
+ 		}
+ 		if ($bInfo['BROWSER'])	{
+@@ -3937,6 +3990,49 @@
+ 	}
+ 
+ 	/**
++	 * Checks if a given string is a valid frame URL to be loaded in the
++	 * backend.
++	 *
++	 * @param string $url potential URL to check
++	 *
++	 * @return string either $url if $url is considered to be harmless, or an
++	 *                empty string otherwise
++	 */
++	public static function sanitizeLocalUrl($url = '') {
++		$sanitizedUrl = '';
++		$decodedUrl = rawurldecode($url);
++
++		if (!empty($url) && self::removeXSS($decodedUrl) === $decodedUrl) {
++			$testAbsoluteUrl = self::resolveBackPath($decodedUrl);
++			$testRelativeUrl = self::resolveBackPath(
++				t3lib_div::dirname(t3lib_div::getIndpEnv('SCRIPT_NAME')) . '/' . $decodedUrl
++			);
++
++				// Pass if URL is on the current host:
++			if (self::isValidUrl($decodedUrl)) {
++				if (self::isOnCurrentHost($decodedUrl) && strpos($decodedUrl, self::getIndpEnv('TYPO3_SITE_URL')) === 0) {
++					$sanitizedUrl = $url;
++				}
++				// Pass if URL is an absolute file path:
++			} elseif (self::isAbsPath($decodedUrl) && self::isAllowedAbsPath($decodedUrl)) {
++				$sanitizedUrl = $url;
++				// Pass if URL is absolute and below TYPO3 base directory:
++			} elseif (strpos($testAbsoluteUrl, self::getIndpEnv('TYPO3_SITE_PATH')) === 0 && substr($decodedUrl, 0, 1) === '/') {
++				$sanitizedUrl = $url;
++				// Pass if URL is relative and below TYPO3 base directory:
++			} elseif (strpos($testRelativeUrl, self::getIndpEnv('TYPO3_SITE_PATH')) === 0 && substr($decodedUrl, 0, 1) !== '/') {
++				$sanitizedUrl = $url;
++			}
++		}
++
++		if (!empty($url) && empty($sanitizedUrl)) {
++			self::sysLog('The URL "' . $url . '" is not considered to be local and was denied.', 'Core', self::SYSLOG_SEVERITY_NOTICE);
++		}
++
++		return $sanitizedUrl;
++	}
++
++	/**
+ 	 * Moves $source file to $destination if uploaded, otherwise try to make a copy
+ 	 * Usage: 4
+ 	 *
+@@ -4263,6 +4359,7 @@
+ 					foreach ($LOCAL_LANG['default'] as &$labelValue)	{
+ 						$labelValue = $csConvObj->utf8_decode($labelValue, $targetCharset);
+ 					}
++					unset($labelValue);
+ 				}
+ 
+ 					// converting other languages to their "native" charsets
+@@ -4927,7 +5024,12 @@
+ 				default:
+ 					$qpValue = t3lib_div::quoted_printable($part,1000);
+ 					if ($part!=$qpValue)	{
+-						$qpValue = str_replace(' ','_',$qpValue);	// Encoded words in the header should not contain non-encoded spaces. "_" is a shortcut for "=20". See RFC 2047 for details.
++						// Encoded words in the header should not contain non-encoded:
++						// * spaces. "_" is a shortcut for "=20". See RFC 2047 for details.
++						// * question mark. See RFC 1342 (http://tools.ietf.org/html/rfc1342)
++						$search = array(' ', '?');
++						$replace = array('_', '=3F');
++						$qpValue = str_replace($search, $replace, $qpValue);
+ 						$part = '=?'.$charset.'?Q?'.$qpValue.'?=';
+ 					}
+ 				break;
+@@ -5051,7 +5153,6 @@
+ 			list($type,$destination) = explode(',',$log,3);
+ 
+ 			if ($type == 'syslog')	{
+-				define_syslog_variables();
+ 				if (TYPO3_OS == 'WIN')	{
+ 					$facility = LOG_USER;
+ 				} else {
+@@ -5297,4 +5398,4 @@
+ 		return '\'' . $escapedValue . '\'';
+ 	}
+ }
+-?>
+\ No newline at end of file
++?>

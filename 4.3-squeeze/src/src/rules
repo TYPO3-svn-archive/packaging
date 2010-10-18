@@ -1,0 +1,82 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+SOURCEVERSION=4.3
+PACKAGENAME=typo3_src-$(SOURCEVERSION)
+SOURCEPACKAGE=typo3-src-$(SOURCEVERSION)
+DBASEPACKAGE=typo3-database
+
+T3SRCDIR=usr/share/typo3/$(PACKAGENAME)
+T3EXTDIR=usr/share/typo3/$(PACKAGENAME)/typo3/ext
+SQLDIR=usr/share/dbconfig-common/data/$(DBASEPACKAGE)/install
+
+SOURCEINSTALLDIR=debian/$(SOURCEPACKAGE)/$(T3SRCDIR)
+SQLINSTALLDIR=debian/$(DBASEPACKAGE)/$(SQLDIR)
+
+clean:
+	dh_testdir
+	dh_testroot
+	dh_clean
+	rm -f $(SOURCEINSTALLDIR)/t3lib/fonts/nimbus.sfd.gz
+
+install: build
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs -p $(SOURCEPACKAGE) $(T3SRCDIR)
+	dh_installdirs -p $(SOURCEPACKAGE) $(T3EXTDIR)
+	dh_installdirs -p $(DBASEPACKAGE) $(SQLDIR) etc/$(DBASEPACKAGE)
+	cp -r index.php misc t3lib typo3 $(SOURCEINSTALLDIR)
+	cp debian/nimbus.sfd.gz $(SOURCEINSTALLDIR)/t3lib/fonts
+	cp debian/mysql $(SQLINSTALLDIR)
+	rm -f $(SOURCEINSTALLDIR)/typo3/LICENSE.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/rtehtmlarea/htmlarea/HTMLAREA_LICENSE.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/adodb/adodb/license.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/t3editor/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/t3editor/jslib/codemirror/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/openid/lib/php-openid/COPYING
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/extjs/LICENSE.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/swfupload/license.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/rsaauth/resources/jsbn/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/swfupload/plugins/swfobject_license.txt
+	rm -f $(SOURCEINSTALLDIR)/t3lib/fonts/vera.ttf
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/prototype/prototype.js
+	rm -rf $(SOURCEINSTALLDIR)/typo3/contrib/scriptaculous
+	rm -rf $(SOURCEINSTALLDIR)/typo3/sysext/adodb/adodb
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/flashmedia/player.txt
+
+binary-indep: build install
+	dh_testdir
+	dh_testroot
+	dh_lintian
+	dh_installdebconf
+	dh_installchangelogs -Ntypo3 -A ChangeLog
+	dh_installdocs -Ntypo3 -A RELEASE_NOTES.txt README.txt NEWS.txt
+	dh_installexamples -p $(SOURCEPACKAGE) misc/advanced.htaccess
+	dh_link
+	dh_compress -Ntypo3
+	dh_fixperms
+	chown -hR root:www-data $(SOURCEINSTALLDIR)
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+# Note to me: how to find all sql files:
+find-sql:
+	cat ../t3lib/stddb/tables.sql ../typo3/sysext/sys_note/ext_tables.sql ../typo3/sysext/extbase/ext_tables.sql \
+		../typo3/sysext/tsconfig_help/ext_tables.sql ../typo3/sysext/sys_action/ext_tables.sql ../typo3/sysext/felogin/ext_tables.sql \
+		../typo3/sysext/dbal/ext_tables.sql ../typo3/sysext/saltedpasswords/ext_tables.sql ../typo3/sysext/openid/ext_tables.sql \
+		../typo3/sysext/rsaauth/ext_tables.sql ../typo3/sysext/rtehtmlarea/ext_tables.sql ../typo3/sysext/impexp/ext_tables.sql \
+		../typo3/sysext/cms/ext_tables.sql ../typo3/sysext/scheduler/ext_tables.sql ../typo3/sysext/indexed_search/ext_tables.sql \
+	> mysql_raw.sql
+
+# Build architecture-dependent files here.
+binary-arch: build install
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install
+

@@ -1,0 +1,346 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 10-SecBull-TYPO3-SA-2010-022.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: Fixes SecBull-TYPO3-SA-2010-022 (taken from svn tag TYPO3_4-2-16
+## DP: revisions 9767:9802)
+
+@DPATCH@
+ 
+Index: t3lib/class.t3lib_db.php
+===================================================================
+--- old/t3lib/class.t3lib_db.php	(.../branches/TYPO3_4-2)	(Revision 9700)
++++ new/t3lib/class.t3lib_db.php	(.../tags/TYPO3_4-2-16)	(Revision 9803)
+@@ -937,12 +937,39 @@
+ 					t3lib_div::sysLog('Could not initialize DB connection with query "'.$v.'": '.mysql_error($this->link),'Core',3);
+ 				}
+ 			}
++			$this->setSqlMode();
+ 		}
+ 
+ 		return $this->link;
+ 	}
+ 
+ 	/**
++	 * Fixes the SQL mode by unsetting NO_BACKSLASH_ESCAPES if found.
++	 *
++	 * @return void
++	 */
++	protected function setSqlMode() {
++		$resource = $this->sql_query('SELECT @@SESSION.sql_mode;');
++		if (is_resource($resource)) {
++			$result = $this->sql_fetch_row($resource);
++			if (isset($result[0]) && $result[0] && strpos($result[0], 'NO_BACKSLASH_ESCAPES') !== FALSE) {
++				$modes = array_diff(
++					t3lib_div::trimExplode(',', $result[0]),
++					array('NO_BACKSLASH_ESCAPES')
++				);
++				$query = 'SET sql_mode=\'' . mysql_real_escape_string(implode(',', $modes)) . '\';';
++				$success = $this->sql_query($query);
++
++				t3lib_div::sysLog(
++					'NO_BACKSLASH_ESCAPES could not be removed from SQL mode: ' . $this->sql_error(),
++					'Core',
++					3
++				);
++			}
++		}
++	}
++
++	/**
+ 	 * Select a MySQL database
+ 	 * mysql_select_db() wrapper function
+ 	 * Usage count/core: 8
+Index: t3lib/class.t3lib_div.php
+===================================================================
+--- old/t3lib/class.t3lib_div.php	(.../branches/TYPO3_4-2)	(Revision 9700)
++++ new/t3lib/class.t3lib_div.php	(.../tags/TYPO3_4-2-16)	(Revision 9803)
+@@ -3915,17 +3915,19 @@
+ 
+ 	/**
+ 	 * Checks for malicious file paths.
+-	 * Returns true if no '//', '..' or '\' is in the $theFile
++	 *
++	 * Returns TRUE if no '//', '..', '\' or control characters are found in the $theFile.
+ 	 * This should make sure that the path is not pointing 'backwards' and further doesn't contain double/back slashes.
+ 	 * So it's compatible with the UNIX style path strings valid for TYPO3 internally.
+ 	 * Usage: 14
+ 	 *
+ 	 * @param	string		Filepath to evaluate
+-	 * @return	boolean		True, if no '//', '\', '/../' is in the $theFile and $theFile doesn't begin with '../'
++	 * @return	boolean		TRUE, $theFile is allowed path string
++	 * @see		http://php.net/manual/en/security.filesystem.nullbytes.php
+ 	 * @todo	Possible improvement: Should it rawurldecode the string first to check if any of these characters is encoded ?
+ 	 */
+ 	public static function validPathStr($theFile)	{
+-		if (strpos($theFile, '//')===false && strpos($theFile, '\\')===false && !preg_match('#(?:^\.\.|/\.\./)#', $theFile)) {
++		if (strpos($theFile, '//') === FALSE && strpos($theFile, '\\') === FALSE && !preg_match('#(?:^\.\.|/\.\./|[[:cntrl:]])#', $theFile)) {
+ 			return true;
+ 		}
+ 	}
+@@ -3966,6 +3968,11 @@
+ 	 * @return	boolean
+ 	 */
+ 	public static function verifyFilenameAgainstDenyPattern($filename)	{
++			// Filenames are not allowed to contain control characters:
++		if (preg_match('/[[:cntrl:]]/', $filename)) {
++			return FALSE;
++		}
++
+ 		if (strcmp($filename,'') && strcmp($GLOBALS['TYPO3_CONF_VARS']['BE']['fileDenyPattern'],''))	{
+ 			$result = eregi($GLOBALS['TYPO3_CONF_VARS']['BE']['fileDenyPattern'],$filename);
+ 			if ($result)	return false;	// so if a matching filename is found, return false;
+Index: t3lib/class.t3lib_tsparser.php
+===================================================================
+--- old/t3lib/class.t3lib_tsparser.php	(.../branches/TYPO3_4-2)	(Revision 9700)
++++ new/t3lib/class.t3lib_tsparser.php	(.../tags/TYPO3_4-2-16)	(Revision 9803)
+@@ -527,10 +527,14 @@
+ 								case 'file':
+ 									$filename = t3lib_div::getFileAbsFileName(trim($sourceParts[1]));
+ 									if (strcmp($filename,''))	{	// Must exist and must not contain '..' and must be relative
+-										if (@is_file($filename) && filesize($filename)<100000)	{	// Max. 100 KB include files!
+-												// check for includes in included text
+-											$included_text = self::checkIncludeLines(t3lib_div::getUrl($filename),$cycle_counter+1);
+-											$newString.= $included_text.chr(10);
++										if (t3lib_div::verifyFilenameAgainstDenyPattern($filename)) { // Check for allowed files
++											if (@is_file($filename) && filesize($filename)<100000)	{	// Max. 100 KB include files!
++													// check for includes in included text
++												$included_text = self::checkIncludeLines(t3lib_div::getUrl($filename),$cycle_counter+1);
++												$newString.= $included_text.chr(10);
++											}
++										} else {
++											t3lib_div::sysLog('File "' . $filename . '" was not included since it is not allowed due to fileDenyPattern', 'Core', 2);
+ 										}
+ 									}
+ 								break;
+Index: typo3/class.db_list.inc
+===================================================================
+--- old/typo3/class.db_list.inc	(.../branches/TYPO3_4-2)	(Revision 9700)
++++ new/typo3/class.db_list.inc	(.../tags/TYPO3_4-2-16)	(Revision 9803)
+@@ -190,8 +190,9 @@
+ 		}
+ 
+ 		if ($sL>0)	{
+-			$tree = $this->getTreeObject($id,$sL,$this->perms_clause);
+-			$this->pidSelect = 'pid IN ('.implode(',',$tree->ids).')';
++			$tree = $this->getTreeObject($this->id, $sL, $this->perms_clause);
++			$pidList = implode(',', $GLOBALS['TYPO3_DB']->cleanIntArray($tree->ids));
++			$this->pidSelect = 'pid IN (' . $pidList . ')';
+ 		} else {
+ 			$this->pidSelect = 'pid='.intval($id);
+ 		}
+Index: typo3/mod/tools/em/class.em_unzip.php
+===================================================================
+--- old/typo3/mod/tools/em/class.em_unzip.php	(.../branches/TYPO3_4-2)	(Revision 9700)
++++ new/typo3/mod/tools/em/class.em_unzip.php	(.../tags/TYPO3_4-2-16)	(Revision 9803)
+@@ -547,6 +547,11 @@
+ 
+ 			}
+ 		}
++		
++			// added by TYPO3 secteam to check for invalid paths
++		if (!t3lib_div::validPathStr($p_entry['filename'])) {
++				return $v_result;
++		}
+ 
+ 		// Add the path
+ 		if ($p_path != '')
+Index: typo3/sysext/cms/tslib/class.tslib_content.php
+===================================================================
+--- old/typo3/sysext/cms/tslib/class.tslib_content.php	(.../branches/TYPO3_4-2)	(Revision 9700)
++++ new/typo3/sysext/cms/tslib/class.tslib_content.php	(.../tags/TYPO3_4-2-16)	(Revision 9803)
+@@ -1714,7 +1714,7 @@
+ 			}
+ 			if ($val && strcspn($val,'#/')) {
+ 					// label:
+-				$confData['label'] = trim($parts[0]);
++				$confData['label'] = t3lib_div::removeXSS(trim($parts[0]));
+ 					// field:
+ 				$fParts = explode(',',$parts[1]);
+ 				$fParts[0]=trim($fParts[0]);
+@@ -1740,6 +1740,7 @@
+ 				} else {
+ 					$confData['fieldname'] = str_replace(' ','_',trim($typeParts[0]));
+ 				}
++				$confData['fieldname'] = htmlspecialchars($confData['fieldname']);
+ 				$fieldCode='';
+ 
+ 				if ($conf['wrapFieldName'])	{
+Index: typo3/sysext/install/mod/class.tx_install.php
+===================================================================
+--- old/typo3/sysext/install/mod/class.tx_install.php	(.../branches/TYPO3_4-2)	(Revision 9700)
++++ new/typo3/sysext/install/mod/class.tx_install.php	(.../tags/TYPO3_4-2-16)	(Revision 9803)
+@@ -624,7 +624,7 @@
+ 		$error_missingConnect='<br />
+ 			'.$this->fontTag2.'<img src="'.$this->backPath.'gfx/icon_fatalerror.gif" width="18" height="16" class="absmiddle">
+ 			There is no connection to the database!<br />
+-			(Username: <i>'.TYPO3_db_username.'</i>, Password: <i>'.TYPO3_db_password.'</i>, Host: <i>'.TYPO3_db_host.'</i>).<br />
++			(Username: <i>' . htmlspecialchars(TYPO3_db_username) . '</i>, Host: <i>' . htmlspecialchars(TYPO3_db_host) . '</i>).<br />
+ 			<br />
+ 			<strong>Go to Step 1</strong> and enter a proper username/password!</span>
+ 			<br />
+@@ -632,7 +632,7 @@
+ 		';
+ 		$error_missingDB='<br />
+ 			'.$this->fontTag2.'<img src="'.$this->backPath.'gfx/icon_fatalerror.gif" width="18" height="16" class="absmiddle">
+-			There is no access to the database (<i>'.TYPO3_db.'</i>)!<br />
++			There is no access to the database (<i>' . htmlspecialchars(TYPO3_db) . '</i>)!<br />
+ 			<br />
+ 			<strong>Go to Step 2</strong> and select an accessible database!</span>
+ 			<br />
+@@ -649,19 +649,19 @@
+ 						</tr>
+ 					   	<tr>
+ 					   		<td valign="top" nowrap="nowrap">'.$this->fontTag1.'Username:</span></td>
+-					   		<td valign="top" nowrap="nowrap"><strong>'.$this->fontTag1.''.TYPO3_db_username.'</span></strong></td>
++					   		<td valign="top" nowrap="nowrap"><strong>'.$this->fontTag1.'' . htmlspecialchars(TYPO3_db_username) . '</span></strong></td>
+ 						</tr>
+ 					   	<tr>
+ 					   		<td valign="top" nowrap="nowrap">'.$this->fontTag1.'Password:</span></td>
+-					   		<td valign="top" nowrap="nowrap"><strong>'.$this->fontTag1.''.TYPO3_db_password.'</span></strong></td>
++					   		<td valign="top" nowrap="nowrap"><strong>'.$this->fontTag1.'' . htmlspecialchars(TYPO3_db_password) . '</span></strong></td>
+ 						</tr>
+ 					   	<tr>
+ 					   		<td valign="top" nowrap="nowrap">'.$this->fontTag1.'Host:</span></td>
+-					   		<td valign="top" nowrap="nowrap"><strong>'.$this->fontTag1.''.TYPO3_db_host.'</span></strong></td>
++					   		<td valign="top" nowrap="nowrap"><strong>'.$this->fontTag1.'' . htmlspecialchars(TYPO3_db_host) . '</span></strong></td>
+ 						</tr>
+ 					   	<tr>
+ 					   		<td valign="top" nowrap="nowrap">'.$this->fontTag1.'Database:</span></td>
+-					   		<td valign="top" nowrap="nowrap"><strong>'.$this->fontTag1.''.TYPO3_db.'</span></strong></td>
++					   		<td valign="top" nowrap="nowrap"><strong>'.$this->fontTag1.'' . htmlspecialchars(TYPO3_db) . '</span></strong></td>
+ 						</tr>
+ 					   	<tr>
+ 					   		<td valign="top" nowrap="nowrap">'.$this->fontTag1.'# of tables:</span></td>
+@@ -693,7 +693,7 @@
+ 					   		</td>
+ 					   		<td valign="top">
+ 								  '.$this->fontTag2.'
+-								  <input type="text" name="TYPO3_INSTALL[localconf.php][typo_db_username]" value="'.TYPO3_db_username.'"></span><br />
++								  <input type="text" name="TYPO3_INSTALL[localconf.php][typo_db_username]" value="' . htmlspecialchars(TYPO3_db_username) . '"></span><br />
+ 					   		</td>
+ 					   	</tr>
+ 					   	<tr>
+@@ -704,7 +704,7 @@
+ 					   		</td>
+ 					   		<td valign="top">
+ 								  '.$this->fontTag2.'
+-								  <input type="text" name="TYPO3_INSTALL[localconf.php][typo_db_password]" value="'.TYPO3_db_password.'"></span><br />
++								  <input type="text" name="TYPO3_INSTALL[localconf.php][typo_db_password]" value="' . htmlspecialchars(TYPO3_db_password) . '"></span><br />
+ 					   		</td>
+ 					   	</tr>
+ 					   	<tr>
+@@ -715,7 +715,7 @@
+ 					   		</td>
+ 					   		<td valign="top">
+ 								  '.$this->fontTag2.'
+-								  <input type="text" name="TYPO3_INSTALL[localconf.php][typo_db_host]" value="'.(TYPO3_db_host?TYPO3_db_host:'localhost').'"></span><br />
++								  <input type="text" name="TYPO3_INSTALL[localconf.php][typo_db_host]" value="'.(TYPO3_db_host? htmlspecialchars(TYPO3_db_host) :'localhost').'"></span><br />
+ 					   		</td>
+ 					   	</tr>
+ 					   	<tr>
+@@ -2047,9 +2047,9 @@
+ 			",2);
+ 		} else {
+ 			$cInfo='
+-				Username: <strong>'.TYPO3_db_username.'</strong>
+-				Password: <strong>'.TYPO3_db_password.'</strong>
+-				Host: <strong>'.TYPO3_db_host.'</strong>
++				Username: <strong>' . htmlspecialchars(TYPO3_db_username) . '</strong>
++				Password: <strong>' . htmlspecialchars(TYPO3_db_password) . '</strong>
++				Host: <strong>' . htmlspecialchars(TYPO3_db_host) . '</strong>
+ 			';
+ 			if (!TYPO3_db_host || !TYPO3_db_username)	{
+ 				$this->message($ext, 'Username, password or host not set',"
+@@ -2072,13 +2072,13 @@
+ 					$this->config_array['no_database']=1;
+ 				} elseif (!$GLOBALS['TYPO3_DB']->sql_select_db(TYPO3_db))  {
+ 					$this->message($ext, 'Database',"
+-						'".TYPO3_db."' could not be selected as database!
++						'" . htmlspecialchars(TYPO3_db) . "' could not be selected as database!
+ 						Please select another one or create a new database.
+ 					",3,1);
+ 					$this->config_array['no_database']=1;
+ 				} else  {
+ 					$this->message($ext, 'Database',"
+-						<strong>".TYPO3_db."</strong> is selected as database.
++						<strong>" . htmlspecialchars(TYPO3_db) . "</strong> is selected as database.
+ 					",1,1);
+ 				}
+ 			} else {
+@@ -2747,19 +2747,19 @@
+ 		$im_path_lzw = $GLOBALS['TYPO3_CONF_VARS']['GFX']['im_path_lzw'];
+ 		$im_path_lzw_version = $this->config_array['im_versions'][$im_path_lzw]['convert'];
+ 		$msg = '
+-		ImageMagick enabled: <strong>'.$GLOBALS['TYPO3_CONF_VARS']['GFX']['im'].'</strong>
+-		ImageMagick path: <strong>'.$im_path.'</strong> ('.$im_path_version.')
+-		ImageMagick path/LZW: <strong>'.$im_path_lzw.'</strong>  ('.$im_path_lzw_version.')
+-		Version 5/GraphicsMagick flag: <strong>'.$GLOBALS['TYPO3_CONF_VARS']['GFX']['im_version_5'].'</strong>
++		ImageMagick enabled: <strong>' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['GFX']['im']) . '</strong>
++		ImageMagick path: <strong>' . htmlspecialchars($im_path) . '</strong> (' . htmlspecialchars($im_path_version) . ')
++		ImageMagick path/LZW: <strong>' . htmlspecialchars($im_path_lzw) . '</strong>  (' . htmlspecialchars($im_path_lzw_version) . ')
++		Version 5/GraphicsMagick flag: <strong>' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['GFX']['im_version_5']) . '</strong>
+ 
+-		GDLib enabled: <strong>'.$GLOBALS['TYPO3_CONF_VARS']['GFX']['gdlib'].'</strong>
+-		GDLib using PNG: <strong>'.$GLOBALS['TYPO3_CONF_VARS']['GFX']['gdlib_png'].'</strong>
+-		GDLib 2 enabled: <strong>'.$GLOBALS['TYPO3_CONF_VARS']['GFX']['gdlib_2'].'</strong>
+-		IM5 effects enabled: <strong>'.$GLOBALS['TYPO3_CONF_VARS']['GFX']['im_v5effects'].'</strong> (Blurring/Sharpening with IM 5+)
+-		Freetype DPI: <strong>'.$GLOBALS['TYPO3_CONF_VARS']['GFX']['TTFdpi'].'</strong> (Should be 96 for Freetype 2)
+-		Mask invert: <strong>'.$GLOBALS['TYPO3_CONF_VARS']['GFX']['im_imvMaskState'].'</strong> (Should be set for some IM versions approx. 5.4+)
++		GDLib enabled: <strong>' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['GFX']['gdlib']) . '</strong>
++		GDLib using PNG: <strong>' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['GFX']['gdlib_png']) . '</strong>
++		GDLib 2 enabled: <strong>' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['GFX']['gdlib_2']) . '</strong>
++		IM5 effects enabled: <strong>' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['GFX']['im_v5effects']) . '</strong> (Blurring/Sharpening with IM 5+)
++		Freetype DPI: <strong>' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['GFX']['TTFdpi']) . '</strong> (Should be 96 for Freetype 2)
++		Mask invert: <strong>' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['GFX']['im_imvMaskState']) . '</strong> (Should be set for some IM versions approx. 5.4+)
+ 
+-		File Formats: <strong>'.$GLOBALS['TYPO3_CONF_VARS']['GFX']['imagefile_ext'].'</strong>
++		File Formats: <strong>' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['GFX']['imagefile_ext']) . '</strong>
+ 		';
+ 
+ 			// Various checks to detect IM/GM version mismatches
+@@ -2778,8 +2778,8 @@
+ 
+ 		if ($mismatch)	{
+ 			$msg.= 'Warning: Mismatch between the version of ImageMagick'.
+-					' ('.$im_path_version.') and the configuration of '.
+-					'[GFX][im_version_5] ('.$GLOBALS['TYPO3_CONF_VARS']['GFX']['im_version_5'].')';
++					' (' . htmlspecialchars($im_path_version) . ') and the configuration of '.
++					'[GFX][im_version_5] (' . htmlspecialchars($GLOBALS['TYPO3_CONF_VARS']['GFX']['im_version_5']) . ')';
+ 			$etype=2;
+ 		} else $etype=1;
+ 
+@@ -3406,9 +3406,9 @@
+ 		",0);
+ 
+ 		$cInfo='
+-			Username: <strong>'.TYPO3_db_username.'</strong>
+-			Password: <strong>'.TYPO3_db_password.'</strong>
+-			Host: <strong>'.TYPO3_db_host.'</strong>
++			Username: <strong>' . htmlspecialchars(TYPO3_db_username) . '</strong>
++			Password: <strong>' . htmlspecialchars(TYPO3_db_password) . '</strong>
++			Host: <strong>' . htmlspecialchars(TYPO3_db_host) . '</strong>
+ 		';
+ 		$this->message($headCode, 'Connected to SQL database successfully',"
+ 		".trim($cInfo)."
+Index: typo3/sysext/install/updates/class.tx_coreupdates_compatversion.php
+===================================================================
+--- old/typo3/sysext/install/updates/class.tx_coreupdates_compatversion.php	(.../branches/TYPO3_4-2)	(Revision 9700)
++++ new/typo3/sysext/install/updates/class.tx_coreupdates_compatversion.php	(.../tags/TYPO3_4-2-16)	(Revision 9803)
+@@ -66,7 +66,7 @@
+ 				The compatibility version has been set to the current TYPO3 version. This is a stamp and has no impact for your installation.';
+ 			}
+ 		} else {
+-			$description = 'Your current TYPO3 installation is configured to <b>behave like version '.$TYPO3_CONF_VARS['SYS']['compat_version'].'</b> of TYPO3. If you just upgraded from this version, you most likely want to <b>use new features</b> as well.</p><p>In the next step, you will see the things that need to be adjusted to make your installation compatible with the new features.';
++			$description = 'Your current TYPO3 installation is configured to <b>behave like version ' . htmlspecialchars($TYPO3_CONF_VARS['SYS']['compat_version']) . '</b> of TYPO3. If you just upgraded from this version, you most likely want to <b>use new features</b> as well.</p><p>In the next step, you will see the things that need to be adjusted to make your installation compatible with the new features.';
+ 		}
+ 
+ 		return 1;	// Return 1 in any case so user has possibility to switch back to a previous compat_version.
+@@ -92,7 +92,7 @@
+ 			}
+ 			$content .= '</select>';
+ 		} else {
+-			$content = 'TYPO3 output is currently compatible to version '.$TYPO3_CONF_VARS['SYS']['compat_version'].'. To use all the new features in the current TYPO3 version, make sure you follow the guidelines below to upgrade without problems.<br />
++			$content = 'TYPO3 output is currently compatible to version ' . htmlspecialchars($TYPO3_CONF_VARS['SYS']['compat_version']) . '. To use all the new features in the current TYPO3 version, make sure you follow the guidelines below to upgrade without problems.<br />
+ 			<p><strong>Follow the steps below carefully and confirm every step!</strong><br />You will see this list again after you performed the update.</p>';
+ 
+ 			$content .= $this->showChangesNeeded($inputPrefix);

@@ -1,3 +1,11 @@
+typo3-src (4.2.5-1+lenny7) stable-security; urgency=high
+
+  * Security patch from new upstream release 4.2.16:
+    - fixes: "TYPO3 Security Bulletin TYPO3-SA-2010-022: Multiple
+      vulnerabilities in TYPO3 Core" (Closes: 607286)
+
+ -- Christian Welzel <gawain@camlann.de>  Thu, 16 Dec 2010 18:00:00 +0100 
+
 typo3-src (4.2.5-1+lenny6) stable-security; urgency=high
 
   * Security patch from new upstream release 4.2.15:

@@ -1,0 +1,111 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+SOURCEVERSION=4.5
+PACKAGENAME=typo3_src-$(SOURCEVERSION)
+SOURCEPACKAGE=typo3-src-$(SOURCEVERSION)
+
+T3SRCDIR=usr/share/typo3/$(PACKAGENAME)
+
+SOURCEINSTALLDIR=debian/$(SOURCEPACKAGE)/$(T3SRCDIR)
+
+DOCROOTDIR=debian/typo3-dummy/var/lib/typo3-dummy
+ETCDIR=debian/typo3-dummy/etc/typo3-dummy
+
+TGZVERSION=$(shell dpkg-parsechangelog | sed -n 's/^Version: //p' | cut -d "-" -f 1)
+ORIGTAR=../typo3-src_$(TGZVERSION).orig.tar
+
+clean:
+	dh_testdir
+	dh_testroot
+	dh_clean
+	debconf-updatepo
+	rm -f $(SOURCEINSTALLDIR)/t3lib/fonts/nimbus.sfd.gz
+
+install: build
+	dh_testdir
+	dh_testroot
+	dh_prep
+	dh_installdirs
+	dh_install
+	cp -r index.php t3lib typo3 $(SOURCEINSTALLDIR)
+	cp debian/nimbus.sfd.gz $(SOURCEINSTALLDIR)/t3lib/fonts
+#set correct permissions for cron script
+	chmod a+x $(SOURCEINSTALLDIR)/typo3/cleaner_check.sh $(SOURCEINSTALLDIR)/typo3/cleaner_fix.sh $(SOURCEINSTALLDIR)/typo3/cli_dispatch.phpsh
+#remove additional license files
+	rm -f $(SOURCEINSTALLDIR)/typo3/LICENSE.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/rtehtmlarea/htmlarea/HTMLAREA_LICENSE.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/adodb/adodb/license.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/t3editor/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/codemirror/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/codemirror/contrib/lua/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/codemirror/contrib/ometa/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/codemirror/contrib/php/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/codemirror/contrib/plsql/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/codemirror/contrib/python/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/codemirror/contrib/scheme/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/codemirror/contrib/sql/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/openid/lib/php-openid/COPYING
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/extjs/LICENSE.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/swfupload/license.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/rsaauth/resources/jsbn/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/swfupload/plugins/swfobject_license.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/flashmedia/player.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/rtehtmlarea/htmlarea/plugins/InsertSmiley/smileys/mozilla_public_license.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/swiftmailer/LICENSE
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/modernizr/LICENSE.txt
+# remove files linked to by later steps in build (dependencies)
+	rm -f $(SOURCEINSTALLDIR)/t3lib/fonts/vera.ttf
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/prototype/prototype.js
+	rm -rf $(SOURCEINSTALLDIR)/typo3/contrib/scriptaculous
+	rm -rf $(SOURCEINSTALLDIR)/typo3/sysext/adodb/adodb
+	rm -rf $(SOURCEINSTALLDIR)/typo3/contrib/swiftmailer
+
+binary-indep: build install
+	dh_testdir
+	dh_testroot
+	dh_lintian
+	dh_installdebconf
+	dh_installchangelogs -Ntypo3 -A ChangeLog
+	dh_installcron
+	dh_installdocs -Ntypo3 -A RELEASE_NOTES.txt README.txt NEWS.txt
+	dh_installexamples
+	dh_installinit
+	dh_link
+	dh_compress -Ntypo3
+	dh_fixperms
+	chown -hR root:www-data $(SOURCEINSTALLDIR)
+	chown -hR www-data:www-data $(DOCROOTDIR)
+	chown     www-data:www-data $(ETCDIR)/localconf.php
+	find $(DOCROOTDIR) -type d -print0 | xargs -0 chmod 0750
+	find $(DOCROOTDIR) -type f -print0 | xargs -0 chmod 0640
+	chmod 600 $(ETCDIR)/localconf.php
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+# Note to me: how to find all sql files:
+find-sql:
+	cat ../t3lib/stddb/tables.sql ../typo3/sysext/sys_note/ext_tables.sql ../typo3/sysext/extbase/ext_tables.sql \
+		../typo3/sysext/tsconfig_help/ext_tables.sql ../typo3/sysext/sys_action/ext_tables.sql ../typo3/sysext/felogin/ext_tables.sql \
+		../typo3/sysext/dbal/ext_tables.sql ../typo3/sysext/saltedpasswords/ext_tables.sql ../typo3/sysext/openid/ext_tables.sql \
+		../typo3/sysext/rsaauth/ext_tables.sql ../typo3/sysext/rtehtmlarea/ext_tables.sql ../typo3/sysext/impexp/ext_tables.sql \
+		../typo3/sysext/cms/ext_tables.sql ../typo3/sysext/scheduler/ext_tables.sql ../typo3/sysext/indexed_search/ext_tables.sql \
+	> mysql_raw.sql
+
+dfsg:
+	dh_testdir
+	gunzip -f $(ORIGTAR).gz
+	tar --delete --wildcards -f $(ORIGTAR) typo3_src-*/typo3/contrib/jsmin/jsmin.php
+	gzip $(ORIGTAR)
+	rm -f typo3/contrib/jsmin/jsmin.php
+
+# Build architecture-dependent files here.
+binary-arch: build install
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install

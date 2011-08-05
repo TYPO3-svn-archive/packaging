@@ -1,3 +1,16 @@
+typo3-src-4.6 (4.6.0+dfsg1~beta1-1) experimental; urgency=low
+
+  * New upstream release.
+  * Renamed source package to typo3-src-4.6.
+  * Added target "get-orig-source" to rules to fetch upstream blankpackage
+    zip file and repack it to .tar.gz
+  * Adopted watch file for zip download.
+  * Renewed patches.
+  * Adopted dh_helper scripts to new package layout.
+  * Added license of typo3/contrib/idna/* to copyright file.
+
+ -- Christian Welzel <gawain@camlann.de>  Thu, 4 Aug 2011 22:00:00 +0100
+
 typo3-src (4.5.3+dfsg1-1) unstable; urgency=low
 
   * New upstream release.

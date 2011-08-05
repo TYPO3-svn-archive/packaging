@@ -1,9 +1,9 @@
 #!/usr/bin/make -f
 
 # Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
+# export DH_VERBOSE=1
 
-SOURCEVERSION=4.5
+SOURCEVERSION=4.6
 PACKAGENAME=typo3_src-$(SOURCEVERSION)
 SOURCEPACKAGE=typo3-src-$(SOURCEVERSION)
 
@@ -14,8 +14,15 @@ SOURCEINSTALLDIR=debian/$(SOURCEPACKAGE)/$(T3SRCDIR)
 DOCROOTDIR=debian/typo3-dummy/var/lib/typo3-dummy
 ETCDIR=debian/typo3-dummy/etc/typo3-dummy
 
-TGZVERSION=$(shell dpkg-parsechangelog | sed -n 's/^Version: //p' | cut -d "-" -f 1)
-ORIGTAR=../typo3-src_$(TGZVERSION).orig.tar
+MAIN_TGZ_VERSION=$(shell dpkg-parsechangelog | sed -rne 's,^Version: (.*)\+dfsg1([^-]+).*,\1,p')
+SUB_TGZ_VERSION=$(shell dpkg-parsechangelog | sed -rne 's,^Version: (.*)\+dfsg1~([^-]+).*,\2,p')
+SUB2_TGZ_VERSION=$(shell dpkg-parsechangelog | sed -rne 's,^Version: (.*)\+dfsg1([^-]+).*,\2,p')
+
+ORIG_DIR=typo3-src-$(SOURCEVERSION)_$(MAIN_TGZ_VERSION)+dfsg1$(SUB2_TGZ_VERSION)
+BLANK_DIR=blankpackage-$(MAIN_TGZ_VERSION)$(SUB_TGZ_VERSION)
+
+ORIGTAR=typo3-src-$(SOURCEVERSION)_$(MAIN_TGZ_VERSION)$(SUB_TGZ_VERSION).orig.tar
+DEBTAR=typo3-src-$(SOURCEVERSION)_$(MAIN_TGZ_VERSION)+dfsg1$(SUB2_TGZ_VERSION).orig.tar
 
 clean:
 	dh_testdir
@@ -56,6 +63,7 @@ install: build
 	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/rtehtmlarea/htmlarea/plugins/InsertSmiley/smileys/mozilla_public_license.txt
 	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/swiftmailer/LICENSE
 	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/modernizr/LICENSE.txt
+	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/idna/LICENCE
 # remove files linked to by later steps in build (dependencies)
 	rm -f $(SOURCEINSTALLDIR)/t3lib/fonts/vera.ttf
 	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/prototype/prototype.js
@@ -88,6 +96,19 @@ binary-indep: build install
 	dh_md5sums
 	dh_builddeb
 
+get-orig-source:
+# get source
+	uscan --no-conf --force-download --rename --repack --download-current-version --destdir=.
+# unpack and rename
+	mkdir -p _unpack
+	tar -xzf $(ORIGTAR).gz -C _unpack
+	mv _unpack/$(BLANK_DIR) _unpack/$(ORIG_DIR)
+# remove dfsg non complient files
+	rm -f _unpack/$(ORIG_DIR)/typo3/contrib/jsmin/jsmin.php
+# repack
+	tar -czf $(DEBTAR).gz -C _unpack $(ORIG_DIR)
+	rm -rf _unpack
+
 # Note to me: how to find all sql files:
 find-sql:
 	cat ../t3lib/stddb/tables.sql ../typo3/sysext/sys_note/ext_tables.sql ../typo3/sysext/extbase/ext_tables.sql \
@@ -96,13 +117,6 @@ find-sql:
 		../typo3/sysext/rsaauth/ext_tables.sql ../typo3/sysext/rtehtmlarea/ext_tables.sql ../typo3/sysext/impexp/ext_tables.sql \
 		../typo3/sysext/cms/ext_tables.sql ../typo3/sysext/scheduler/ext_tables.sql ../typo3/sysext/indexed_search/ext_tables.sql \
 	> mysql_raw.sql
-
-dfsg:
-	dh_testdir
-	gunzip -f $(ORIGTAR).gz
-	tar --delete --wildcards -f $(ORIGTAR) typo3_src-*/typo3/contrib/jsmin/jsmin.php
-	gzip $(ORIGTAR)
-	rm -f typo3/contrib/jsmin/jsmin.php
 
 # Build architecture-dependent files here.
 binary-arch: build install

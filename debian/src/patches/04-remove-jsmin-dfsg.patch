@@ -1,7 +1,7 @@
 --- typo3-src-4.5.3+dfsg1.orig/t3lib/class.t3lib_div.php
 +++ typo3-src-4.5.3+dfsg1/t3lib/class.t3lib_div.php
 @@ -2903,16 +2903,17 @@
- 	 * @return	string	Minified script or source string if error happened
+ 	 * @return string Minified script or source string if error happened
  	 */
  	public static function minifyJavaScript($script, &$error = '') {
 -		require_once(PATH_typo3 . 'contrib/jsmin/jsmin.php');

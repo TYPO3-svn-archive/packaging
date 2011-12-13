@@ -1,6 +1,11 @@
---- typo3-src-4.5.3+dfsg1.orig/t3lib/class.t3lib_div.php
-+++ typo3-src-4.5.3+dfsg1/t3lib/class.t3lib_div.php
-@@ -2903,16 +2903,17 @@
+## 04-remove-jsmin-dfsg.patch by Christian Welzel <gawain@camlann.de>
+##
+## DP: remove invocation code of jsmin, which is not dfsg compliant
+## DP: and therefore removed during packaging.
+
+--- typo3-src-4.6_4.6.0+dfsg1.orig/t3lib/class.t3lib_div.php
++++ typo3-src-4.6_4.6.0+dfsg1/t3lib/class.t3lib_div.php
+@@ -2562,16 +2562,17 @@
  	 * @return string Minified script or source string if error happened
  	 */
  	public static function minifyJavaScript($script, &$error = '') {

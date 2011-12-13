@@ -1,15 +1,18 @@
-Format-Specification: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=135
-Name: typo3-src
-Maintainer: Christian Welzel <gawain@camlann.de>
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0
+Upstream-Name: typo3
+Upstream-Contact: http://www.typo3.org
 Source: http://typo3.org/download/packages/
-
-Copyright: 2003-2010 Kasper Skaarhoj (kasperYYYY@typo3.com)
-License: GPL-2+
 
 Files: debian/*
 Copyright: 2003, Michael Stucki <mundaun@gmx.ch>
            2004-2005, Christian Leutloff <leutloff@debian.org>
-           2006-2010, Christian Welzel <gawain@camlann.de>
+           2006-2011, Christian Welzel <gawain@camlann.de>
+License: GPL-2+
+
+Files: fileadmin/* t3lib/* typo3conf/* typo3temp/* uploads/*
+       typo3/classes/* typo3/ext/* typo3/gfx/* typo3/interfaces/* typo3/install/*
+       typo3/js/* typo3/mod/* typo3/stylesheets/* typo3/sysext/* typo3/templates/*
+Copyright: 2003-2010 Kasper Skaarhoj (kasperYYYY@typo3.com)
 License: GPL-2+
 
 Files: typo3/sysext/adodb/adodb/*
@@ -21,22 +24,22 @@ Copyright: 2002-2004, interactivetools.com, inc.
            2003-2004, dynarch.com
 License:
  All rights reserved.
-
+ .
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are
  met:
-
+ .
  * Redistributions of source code must retain the above copyright
    notice, this list of conditions and the following disclaimer.
-
+ .
  * Redistributions in binary form must reproduce the above copyright
    notice, this list of conditions and the following disclaimer in the
    documentation and/or other materials provided with the distribution.
-
+ .
  * Neither the name of interactivetools.com, inc. nor the names of its
    contributors may be used to endorse or promote products derived from
    this software without specific prior written permission.
-
+ .
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
  IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
  TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
@@ -70,24 +73,24 @@ Files: typo3/contrib/codemirror/contrib/lua/*
 Copyright: 2009, Franciszek Wawrzak
 License:
  All rights reserved.
-
+ .
  This software is provided for use in connection with the
  CodeMirror suite of modules and utilities, hosted and maintained
  at http://codemirror.net/.
-
+ .
  Redistribution and use of this software in source and binary forms,
  with or without modification, are permitted provided that the
  following conditions are met:
-
+ .
  * Redistributions of source code must retain the above
    copyright notice, this list of conditions and the
    following disclaimer.
-
+ .
  * Redistributions in binary form must reproduce the above
    copyright notice, this list of conditions and the
    following disclaimer in the documentation and/or other
    materials provided with the distribution.
-
+ .
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -109,29 +112,29 @@ Files: typo3/contrib/codemirror/contrib/php/*
 Copyright: 2008-2009, Yahoo! Inc.
 License:
  All rights reserved.
-
+ .
  This software is provided for use in connection with the
  CodeMirror suite of modules and utilities, hosted and maintained
  at http://codemirror.net/.
-
+ .
  Redistribution and use of this software in source and binary forms,
  with or without modification, are permitted provided that the
  following conditions are met:
-
+ .
  * Redistributions of source code must retain the above
    copyright notice, this list of conditions and the
    following disclaimer.
-
+ .
  * Redistributions in binary form must reproduce the above
    copyright notice, this list of conditions and the
    following disclaimer in the documentation and/or other
    materials provided with the distribution.
-
+ .
  * Neither the name of Yahoo! Inc. nor the names of its
    contributors may be used to endorse or promote products
    derived from this software without specific prior
    written permission of Yahoo! Inc.
-
+ .
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -153,24 +156,24 @@ Files: typo3/contrib/codemirror/contrib/python/*
 Copyright: 2009, Timothy Farrell
 License:
  All rights reserved.
-
+ .
  This software is provided for use in connection with the
  CodeMirror suite of modules and utilities, hosted and maintained
  at http://codemirror.net/.
-
+ .
  Redistribution and use of this software in source and binary forms,
  with or without modification, are permitted provided that the
  following conditions are met:
-
+ .
  * Redistributions of source code must retain the above
    copyright notice, this list of conditions and the
    following disclaimer.
-
+ .
  * Redistributions in binary form must reproduce the above
    copyright notice, this list of conditions and the
    following disclaimer in the documentation and/or other
    materials provided with the distribution.
-
+ .
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -196,7 +199,7 @@ Files: typo3/sysext/openid/lib/php-openid/*
 Copyright:
 License: Apache-2.0
 
-Files: typo3/gfx/magnifier.png, typo3/gfx/lightning.png
+Files: typo3/gfx/magnifier.png typo3/gfx/lightning.png
 Copyright: 2006, Mark James <mjames@gmail.com>
 License: CC-BY
  These icons are retrieved from the "Silk" icon set of Mark James, which
@@ -211,22 +214,22 @@ License:
  ------------------------------------------------------------------------------------------
  Ext is licensed under the terms of the Open Source GPL 3.0 license.
  http://www.gnu.org/licenses/gpl.html
-
+ .
  There are several FLOSS exceptions available for use with this release for
  open source applications that are distributed under a license other than the GPL.
-
+ .
  TYPO3 makes use of this FLOSS exception.
  * Open Source License Exception for Applications
     http://extjs.com/products/floss-exception.php
  * Open Source License Exception for Development
    http://extjs.com/products/ux-exception.php
-
+ .
  Commercial License
  ------------------------------------------------------------------------------------------
  This is the appropriate option if you are creating proprietary applications and you are 
  not prepared to distribute and share the source code of your application under the 
  GPL v3 license. Please visit http://extjs.com/license for more details.
-
+ .
  OEM / Reseller License
  ------------------------------------------------------------------------------------------
  For more details, please visit: http://extjs.com/license.
@@ -253,7 +256,7 @@ Files: typo3/sysext/rsaauth/resources/jsbn/*
 Copyright: 2003-2005, Tom Wu <tjw@cs.Stanford.EDU>
 License:
  All rights reserved.
-
+ .
  Permission is hereby granted, free of charge, to any person obtaining
  a copy of this software and associated documentation files (the
  "Software"), to deal in the Software without restriction, including
@@ -261,28 +264,28 @@ License:
  distribute, sublicense, and/or sell copies of the Software, and to
  permit persons to whom the Software is furnished to do so, subject to
  the following conditions:
-
+ .
  The above copyright notice and this permission notice shall be
  included in all copies or substantial portions of the Software.
-
+ .
  THE SOFTWARE IS PROVIDED "AS-IS" AND WITHOUT WARRANTY OF ANY KIND,
  EXPRESS, IMPLIED OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY
  WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
-
+ .
  IN NO EVENT SHALL TOM WU BE LIABLE FOR ANY SPECIAL, INCIDENTAL,
  INDIRECT OR CONSEQUENTIAL DAMAGES OF ANY KIND, OR ANY DAMAGES WHATSOEVER
  RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER OR NOT ADVISED OF
  THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF LIABILITY, ARISING OUT
  OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
+ .
  In addition, the following condition applies:
-
+ .
  All redistributions must retain an intact copy of this copyright notice
  and disclaimer.
 
 Files: typo3/contrib/flashmedia/player.swf
 Copyright: 2005-2006  Martin Laine <martin@1pixelout.net>
-License: GPL-2+
+License: GPL-2
 
 Files: typo3/contrib/swiftmailer/*
 Copyright: 2009, Chris Corbyn
@@ -367,3 +370,9 @@ License: LGPL-3
 License: Apache-2.0
  On Debian GNU/Linux systems, the complete text of the Apache License Version
  2.0 can be found in the /usr/share/common-licenses/Apache-2.0 file.
+
+License: MPL
+ .
+
+License: BSD
+ .

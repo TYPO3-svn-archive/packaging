@@ -1,15 +1,51 @@
-typo3-src-4.6 (4.6.0+dfsg1~beta1-1) experimental; urgency=low
+typo3-src-4.6 (4.6.1+dfsg1-1) experimental; urgency=low
 
   * New upstream release.
   * Renamed source package to typo3-src-4.6.
   * Added target "get-orig-source" to rules to fetch upstream blankpackage
     zip file and repack it to .tar.gz
   * Adopted watch file for zip download.
+  * Fixed regexps in rules and watch for version detection.
   * Renewed patches.
+  * Added description to patches.
   * Adopted dh_helper scripts to new package layout.
   * Added license of typo3/contrib/idna/* to copyright file.
+  * New binary package typo3-dummy-apache2.
+  * Moved all apache2 stuff from typo3-dummy to typo3-dummy-apache2.
+    (Closes: 618381)
+  * Renamed package typo3-dummy to typo3-dummy-common.
+  * Added transition package typo3-dummy, pulls in typo3-dummy-apache2.
+  * Readded typo3-dummy.examples.
+  * Removed find-sql target from rules.
+  * Added target prepare-source to rules.
+  * Removed lintian override for embedded nusoap library (not embedded
+    anymore by upstream).
+  * Added lintian override for nimbus.ttf.
+  * Remove empty jsmin directory and .gitignore in rules.
+  * Remove not delivered embedded code copies from tar-ball during repacking.
+  * Raised standards version to 3.9.2.
 
- -- Christian Welzel <gawain@camlann.de>  Thu, 4 Aug 2011 22:00:00 +0100
+ -- Christian Welzel <gawain@camlann.de>  Wed, 26 Oct 2011 12:00:00 +0100
+
+typo3-src (4.5.6+dfsg1-1) unstable; urgency=high
+
+  * New upstream release:
+    - fixes: "TYPO3 Security Bulletin TYPO3-CORE-SA-2011-002: Potential
+      SQL injection vulnerability in TYPO3 Core" (Closes: 641682)
+    - fixes: "TYPO3 Security Bulletin TYPO3-CORE-SA-2011-003: Improper error
+      handling could lead to cache flooding in TYPO3 Core" (Closes: 641683)
+
+ -- Christian Welzel <gawain@camlann.de>  Thu, 15 Sep 2011 10:00:00 +0100
+
+typo3-src (4.5.4+dfsg1-1) unstable; urgency=high
+
+  * New upstream release:
+    - fixes: "TYPO3 Security Bulletin TYPO3-CORE-SA-2011-001: Multiple
+      vulnerabilities in TYPO3 Core" (Closes: 635937)
+  * Adopted patch 02-dummy-defaults.patch to new localconf.php.
+  * Removed typo3-dummy.examples, because its empty now.
+
+ -- Christian Welzel <gawain@camlann.de>  Fri, 29 Jul 2011 20:00:00 +0100
 
 typo3-src (4.5.3+dfsg1-1) unstable; urgency=low
 

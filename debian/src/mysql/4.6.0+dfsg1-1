@@ -1,0 +1,66 @@
+ALTER TABLE be_sessions ADD KEY ses_tstamp (ses_tstamp);
+ALTER TABLE fe_sessions ADD KEY ses_tstamp (ses_tstamp);
+
+ALTER TABLE be_users CHANGE uc uc mediumtext;
+ALTER TABLE pages DROP KEY parent;
+ALTER TABLE pages ADD KEY parent (pid,deleted,sorting);
+ALTER TABLE sys_history ENGINE=InnoDB;
+ALTER TABLE pages_language_overlay CHANGE media media text;
+ALTER TABLE sys_domain CHANGE redirectTo redirectTo varchar(255) default '';
+ALTER TABLE sys_template DROP KEY parent;
+ALTER TABLE sys_template ADD KEY parent (pid,deleted,hidden,sorting);
+ALTER TABLE tt_content CHANGE image_link image_link text;
+
+CREATE TABLE cf_cache_hash (
+    id int(11) unsigned NOT NULL auto_increment,
+    identifier varchar(250) NOT NULL default '',
+    expires int(11) unsigned NOT NULL default '0',
+    content mediumblob,
+    PRIMARY KEY (id),
+    KEY cache_id (identifier,expires)
+) ENGINE=InnoDB;
+
+CREATE TABLE cf_cache_hash_tags (
+    id int(11) unsigned NOT NULL auto_increment,
+    identifier varchar(250) NOT NULL default '',
+    tag varchar(250) NOT NULL default '',
+    PRIMARY KEY (id),
+    KEY cache_id (identifier),
+    KEY cache_tag (tag)
+) ENGINE=InnoDB;
+
+CREATE TABLE cf_cache_pages (
+    id int(11) unsigned NOT NULL auto_increment,
+    identifier varchar(250) NOT NULL default '',
+    expires int(11) unsigned NOT NULL default '0',
+    content mediumblob,
+    PRIMARY KEY (id),
+    KEY cache_id (identifier,expires)
+) ENGINE=InnoDB;
+
+CREATE TABLE cf_cache_pages_tags (
+    id int(11) unsigned NOT NULL auto_increment,
+    identifier varchar(250) NOT NULL default '',
+    tag varchar(250) NOT NULL default '',
+    PRIMARY KEY (id),
+    KEY cache_id (identifier),
+    KEY cache_tag (tag)
+) ENGINE=InnoDB;
+
+CREATE TABLE cf_cache_pagesection (
+    id int(11) unsigned NOT NULL auto_increment,
+    identifier varchar(250) NOT NULL default '',
+    expires int(11) unsigned NOT NULL default '0',
+    content mediumblob,
+    PRIMARY KEY (id),
+    KEY cache_id (identifier,expires)
+) ENGINE=InnoDB;
+
+CREATE TABLE cf_cache_pagesection_tags (
+    id int(11) unsigned NOT NULL auto_increment,
+    identifier varchar(250) NOT NULL default '',
+    tag varchar(250) NOT NULL default '',
+    PRIMARY KEY (id),
+    KEY cache_id (identifier),
+    KEY cache_tag (tag)
+) ENGINE=InnoDB;

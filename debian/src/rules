@@ -11,10 +11,10 @@ T3SRCDIR=usr/share/typo3/$(PACKAGENAME)
 
 SOURCEINSTALLDIR=debian/$(SOURCEPACKAGE)/$(T3SRCDIR)
 
-DOCROOTDIR=debian/typo3-dummy/var/lib/typo3-dummy
-ETCDIR=debian/typo3-dummy/etc/typo3-dummy
+DOCROOTDIR=debian/typo3-dummy-common/var/lib/typo3-dummy
+ETCDIR=debian/typo3-dummy-common/etc/typo3-dummy
 
-MAIN_TGZ_VERSION=$(shell dpkg-parsechangelog | sed -rne 's,^Version: (.*)\+dfsg1([^-]+).*,\1,p')
+MAIN_TGZ_VERSION=$(shell dpkg-parsechangelog | sed -rne 's,^Version: ([^+]+).*,\1,p')
 SUB_TGZ_VERSION=$(shell dpkg-parsechangelog | sed -rne 's,^Version: (.*)\+dfsg1~([^-]+).*,\2,p')
 SUB2_TGZ_VERSION=$(shell dpkg-parsechangelog | sed -rne 's,^Version: (.*)\+dfsg1([^-]+).*,\2,p')
 
@@ -61,28 +61,27 @@ install: build
 	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/swfupload/plugins/swfobject_license.txt
 	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/flashmedia/player.txt
 	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/rtehtmlarea/htmlarea/plugins/InsertSmiley/smileys/mozilla_public_license.txt
-	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/swiftmailer/LICENSE
 	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/modernizr/LICENSE.txt
 	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/idna/LICENCE
 # remove files linked to by later steps in build (dependencies)
 	rm -f $(SOURCEINSTALLDIR)/t3lib/fonts/vera.ttf
-	rm -f $(SOURCEINSTALLDIR)/typo3/contrib/prototype/prototype.js
-	rm -rf $(SOURCEINSTALLDIR)/typo3/contrib/scriptaculous
 	rm -rf $(SOURCEINSTALLDIR)/typo3/sysext/adodb/adodb
-	rm -rf $(SOURCEINSTALLDIR)/typo3/contrib/swiftmailer
+# remove other unwanted files
+	rm -f $(SOURCEINSTALLDIR)/typo3/sysext/linkvalidator/.gitignore
+	rmdir $(SOURCEINSTALLDIR)/typo3/contrib/jsmin
 
 binary-indep: build install
 	dh_testdir
 	dh_testroot
 	dh_lintian
 	dh_installdebconf
-	dh_installchangelogs -Ntypo3 -A ChangeLog
+	dh_installchangelogs -Ntypo3 -Ntypo3-dummy -A ChangeLog
 	dh_installcron
-	dh_installdocs -Ntypo3 -A RELEASE_NOTES.txt README.txt NEWS.txt
+	dh_installdocs -Ntypo3 -Ntypo3-dummy -A RELEASE_NOTES.txt README.txt NEWS.txt
 	dh_installexamples
 	dh_installinit
 	dh_link
-	dh_compress -Ntypo3
+	dh_compress -Ntypo3 -Ntypo3-dummy
 	dh_fixperms
 	chown -hR root:www-data $(SOURCEINSTALLDIR)
 	chown -hR www-data:www-data $(DOCROOTDIR)
@@ -96,6 +95,9 @@ binary-indep: build install
 	dh_md5sums
 	dh_builddeb
 
+build-arch: build
+build-indep: build
+
 get-orig-source:
 # get source
 	uscan --no-conf --force-download --rename --repack --download-current-version --destdir=.
@@ -105,18 +107,19 @@ get-orig-source:
 	mv _unpack/$(BLANK_DIR) _unpack/$(ORIG_DIR)
 # remove dfsg non complient files
 	rm -f _unpack/$(ORIG_DIR)/typo3/contrib/jsmin/jsmin.php
+# remove embedded libraries
+	rm -rf _unpack/$(ORIG_DIR)/typo3/contrib/swiftmailer
+	rm -rf _unpack/$(ORIG_DIR)/typo3/contrib/prototype
+	rm -rf _unpack/$(ORIG_DIR)/typo3/contrib/scriptaculous
 # repack
 	tar -czf $(DEBTAR).gz -C _unpack $(ORIG_DIR)
 	rm -rf _unpack
 
-# Note to me: how to find all sql files:
-find-sql:
-	cat ../t3lib/stddb/tables.sql ../typo3/sysext/sys_note/ext_tables.sql ../typo3/sysext/extbase/ext_tables.sql \
-		../typo3/sysext/tsconfig_help/ext_tables.sql ../typo3/sysext/sys_action/ext_tables.sql ../typo3/sysext/felogin/ext_tables.sql \
-		../typo3/sysext/dbal/ext_tables.sql ../typo3/sysext/saltedpasswords/ext_tables.sql ../typo3/sysext/openid/ext_tables.sql \
-		../typo3/sysext/rsaauth/ext_tables.sql ../typo3/sysext/rtehtmlarea/ext_tables.sql ../typo3/sysext/impexp/ext_tables.sql \
-		../typo3/sysext/cms/ext_tables.sql ../typo3/sysext/scheduler/ext_tables.sql ../typo3/sysext/indexed_search/ext_tables.sql \
-	> mysql_raw.sql
+prepare-source:
+	dh_testdir
+	mv $(ORIGTAR).gz ../
+	mv $(DEBTAR).gz ../
+	tar --strip-components 1 -C . -xzf ../$(DEBTAR).gz
 
 # Build architecture-dependent files here.
 binary-arch: build install

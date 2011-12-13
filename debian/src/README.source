@@ -1,10 +1,11 @@
-typo3-src (4.6.0+dfsg1~alpha3)
+typo3-src-4.6 (4.6.1+dfsg1-1)
 
   * base of this package is now the blankpackage.zip of TYPO3
     instead of the tar.gz. This simplifies package building because
     dummy has not to be integrated anymore.
-    Use debian/rules get-orig-source to download and repack the 
+    Use debian/rules get-orig-source to download and repack the
     source package.
+  * Remove embedded code copies during repacking step.
 
 typo3-src (4.5.0+dfsg1~beta2-1)
 

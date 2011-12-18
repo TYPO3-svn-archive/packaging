@@ -1,0 +1,345 @@
+#!/bin/sh /usr/share/dpatch/dpatch-run
+## 11-SecBull-TYPO3-CORE-SA-2011-001.dpatch by Christian Welzel <gawain@camlann.de>
+##
+## DP: Fixes SecBull-TYPO3-SA-2011-001 (taken from Core.git
+## DP: tags TYPO3_4-3-11 -> TYPO3_4-3-12)
+
+@DPATCH@
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/t3lib/class.t3lib_befunc.php typo3-src-4.2.5/t3lib/class.t3lib_befunc.php
+--- typo3-src-4.2.5~/t3lib/class.t3lib_befunc.php	2011-08-04 12:49:27.000000000 +0200
++++ typo3-src-4.2.5/t3lib/class.t3lib_befunc.php	2011-08-04 13:07:17.000000000 +0200
+@@ -2182,15 +2182,24 @@
+ 					}
+ 				break;
+ 				case 'input':
+-					if ($value) {
++						// hide value 0 for dates, but show it for everything else
++					if (isset($value)) {
+ 						if (t3lib_div::inList($theColConf['eval'], 'date')) {
+-							$l = t3lib_BEfunc::date($value).' ('.(time()-$value>0?'-':'').t3lib_BEfunc::calcAge(abs(time()-$value), $GLOBALS['LANG']->sL('LLL:EXT:lang/locallang_core.php:labels.minutesHoursDaysYears')).')';
++							if(!empty($value)) {
++								$l = t3lib_BEfunc::date($value).' ('.(time()-$value>0?'-':'').t3lib_BEfunc::calcAge(abs(time()-$value), $GLOBALS['LANG']->sL('LLL:EXT:lang/locallang_core.php:labels.minutesHoursDaysYears')).')';
++							}
+ 						} elseif (t3lib_div::inList($theColConf['eval'], 'time')) {
+-							$l = t3lib_BEfunc::time($value, FALSE);
++							if(!empty($value)) {
++								$l = t3lib_BEfunc::time($value, FALSE);
++							}
+ 						} elseif (t3lib_div::inList($theColConf['eval'], 'timesec')) {
+-							$l = t3lib_BEfunc::time($value);
++							if(!empty($value)) {
++								$l = t3lib_BEfunc::time($value);
++							}
+ 						} elseif (t3lib_div::inList($theColConf['eval'], 'datetime')) {
+-							$l = t3lib_BEfunc::datetime($value);
++							if(!empty($value)) {
++								$l = t3lib_BEfunc::datetime($value);
++							}
+ 						} else {
+ 							$l = $value;
+ 						}
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/t3lib/class.t3lib_lock.php typo3-src-4.2.5/t3lib/class.t3lib_lock.php
+--- typo3-src-4.2.5~/t3lib/class.t3lib_lock.php	2011-08-04 12:48:28.000000000 +0200
++++ typo3-src-4.2.5/t3lib/class.t3lib_lock.php	2011-08-04 13:09:56.000000000 +0200
+@@ -213,8 +213,10 @@
+ 		$success = true;
+ 		switch ($this->method) {
+ 			case 'simple':
+-				if (unlink($this->resource) == false) {
+-					$success = false;
++				if (t3lib_div::isAllowedAbsPath($this->resource) && t3lib_div::isFirstPartOfStr($this->resource, PATH_site . 'typo3temp/locks/')) {
++					if (unlink($this->resource) == false) {
++						$success = false;
++					}
+ 				}
+ 			break;
+ 			case 'flock':
+@@ -222,7 +224,9 @@
+ 					$success = false;
+ 				}
+ 				fclose($this->filepointer);
+-				unlink($this->resource);
++				if (t3lib_div::isAllowedAbsPath($this->resource) && t3lib_div::isFirstPartOfStr($this->resource, PATH_site . 'typo3temp/locks/')) {
++					unlink($this->resource);
++				}
+ 			break;
+ 			case 'semaphore':
+ 				if (@sem_release($this->resource)) {
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/t3lib/class.t3lib_tstemplate.php typo3-src-4.2.5/t3lib/class.t3lib_tstemplate.php
+--- typo3-src-4.2.5~/t3lib/class.t3lib_tstemplate.php	2011-08-04 12:48:28.000000000 +0200
++++ typo3-src-4.2.5/t3lib/class.t3lib_tstemplate.php	2011-08-04 12:49:28.000000000 +0200
+@@ -1424,7 +1424,7 @@
+ 			// linkVars
+ 		if ($GLOBALS['TSFE']->config['config']['uniqueLinkVars']) {
+ 			if ($addParams) {
+-				$LD['linkVars'] = t3lib_div::implodeArrayForUrl('',t3lib_div::explodeUrl2Array($GLOBALS['TSFE']->linkVars.$addParams));
++				$LD['linkVars'] = t3lib_div::implodeArrayForUrl('', t3lib_div::explodeUrl2Array($GLOBALS['TSFE']->linkVars . $addParams), '', FALSE, TRUE);
+ 			} else {
+ 				$LD['linkVars'] = $GLOBALS['TSFE']->linkVars;
+ 			}
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/t3lib/class.t3lib_userauth.php typo3-src-4.2.5/t3lib/class.t3lib_userauth.php
+--- typo3-src-4.2.5~/t3lib/class.t3lib_userauth.php	2011-08-04 12:49:27.000000000 +0200
++++ typo3-src-4.2.5/t3lib/class.t3lib_userauth.php	2011-08-04 12:49:28.000000000 +0200
+@@ -243,6 +243,9 @@
+ 			// Make certain that NO user is set initially
+ 		$this->user = '';
+ 
++			// We need a PHP session session for most login levels
++		session_start();
++
+ 			// Check to see if anyone has submitted login-information and if so register the user with the session. $this->user[uid] may be used to write log...
+ 		$this->checkAuthentication();
+ 
+@@ -1090,7 +1093,6 @@
+ 
+ 					// Check challenge stored in cookie:
+ 				if ($this->challengeStoredInCookie)	{
+-					session_start();
+ 					if ($_SESSION['login_challenge'] !== $loginData['chalvalue']) {
+ 						if ($this->writeDevLog) 	t3lib_div::devLog('PHP Session stored challenge "'.$_SESSION['login_challenge'].'" and submitted challenge "'.$loginData['chalvalue'].'" did not match, so authentication failed!', 't3lib_userAuth', 2);
+ 						$this->logoff();
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/typo3/class.browse_links.php typo3-src-4.2.5/typo3/class.browse_links.php
+--- typo3-src-4.2.5~/typo3/class.browse_links.php	2011-08-04 12:49:27.000000000 +0200
++++ typo3-src-4.2.5/typo3/class.browse_links.php	2011-08-04 12:49:28.000000000 +0200
+@@ -882,16 +882,16 @@
+ 		}
+ 
+ 			// Initializing the target value (RTE)
+-		$this->setTarget = ($this->curUrlArray['target'] != '-') ? $this->curUrlArray['target'] : '';
++		$this->setTarget = ($this->curUrlArray['target'] != '-') ? rawurlencode($this->curUrlArray['target']) : '';
+ 		if ($this->thisConfig['defaultLinkTarget'] && !isset($this->curUrlArray['target']))	{
+ 			$this->setTarget=$this->thisConfig['defaultLinkTarget'];
+ 		}
+ 
+ 			// Initializing the class value (RTE)
+-		$this->setClass = ($this->curUrlArray['class'] != '-') ? $this->curUrlArray['class'] : '';
++		$this->setClass = ($this->curUrlArray['class'] != '-') ? rawurlencode($this->curUrlArray['class']) : '';
+ 
+ 			// Initializing the title value (RTE)
+-		$this->setTitle = ($this->curUrlArray['title'] != '-') ? $this->curUrlArray['title'] : '';
++		$this->setTitle = ($this->curUrlArray['title'] != '-') ? rawurlencode($this->curUrlArray['title']) : '';
+ 
+ 			// BEGIN accumulation of header JavaScript:
+ 		$JScode = '
+@@ -902,7 +902,7 @@
+ 			var add_title="'.($this->setTitle?'&curUrl[title]='.rawurlencode($this->setTitle):'').'";
+ 			var add_params="'.($this->bparams?'&bparams='.rawurlencode($this->bparams):'').'";
+ 
+-			var cur_href="'.($this->curUrlArray['href']?$this->curUrlArray['href']:'').'";
++			var cur_href="' . ($this->curUrlArray['href'] ? rawurlencode($this->curUrlArray['href']) : '') . '";
+ 			var cur_target="'.($this->setTarget?$this->setTarget:'').'";
+ 			var cur_class = "'.($this->setClass ? $this->setClass : '-').'";
+ 			var cur_title="'.($this->setTitle?$this->setTitle:'').'";
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/typo3/contrib/RemoveXSS/RemoveXSS.php typo3-src-4.2.5/typo3/contrib/RemoveXSS/RemoveXSS.php
+--- typo3-src-4.2.5~/typo3/contrib/RemoveXSS/RemoveXSS.php	2011-08-04 12:49:27.000000000 +0200
++++ typo3-src-4.2.5/typo3/contrib/RemoveXSS/RemoveXSS.php	2011-08-04 12:49:28.000000000 +0200
+@@ -72,7 +72,7 @@
+ 		$ra_protocol = array('javascript', 'vbscript', 'expression');
+ 
+ 		//remove the potential &#xxx; stuff for testing
+-		$val2 = preg_replace('/(&#[xX]?0{0,8}(9|10|13|a|b);)*\s*/i', '', $val);
++		$val2 = preg_replace('/(&#[xX]?0{0,8}(9|10|13|a|b);?)*\s*/i', '', $val);
+ 		$ra = array();
+ 
+ 		foreach ($ra1 as $ra1word) {
+@@ -104,7 +104,7 @@
+ 					$pattern = '';
+ 					for ($j = 0; $j < strlen($ra[$i][0]); $j++) {
+ 						if ($j > 0) {
+-							$pattern .= '((&#[xX]0{0,8}([9ab]);)|(&#0{0,8}(9|10|13);)|\s)*';
++							$pattern .= '((&#[xX]0{0,8}([9ab]);?)|(&#0{0,8}(9|10|13);?)|\s)*';
+ 						}
+ 						$pattern .= $ra[$i][0][$j];
+ 					}
+@@ -112,11 +112,11 @@
+ 					switch ($ra[$i][1]) {
+ 						case 'ra_protocol':
+ 							//these take the form of e.g. 'javascript:'
+-							$pattern .= '((&#[xX]0{0,8}([9ab]);)|(&#0{0,8}(9|10|13);)|\s)*(?=:)';
++							$pattern .= '((&#[xX]0{0,8}([9ab]);?)|(&#0{0,8}(9|10|13);?)|\s)*(?=:)';
+ 							break;
+ 						case 'ra_tag':
+ 							//these take the form of e.g. '<SCRIPT[^\da-z] ....';
+-							$pattern = '(?<=<)' . $pattern . '((&#[xX]0{0,8}([9ab]);)|(&#0{0,8}(9|10|13);)|\s)*(?=[^\da-z])';
++							$pattern = '(?<=<)' . $pattern . '((&#[xX]0{0,8}([9ab]);?)|(&#0{0,8}(9|10|13);?)|\s)*(?=[^\da-z])';
+ 							break;
+ 						case 'ra_attribute':
+ 							//these take the form of e.g. 'onload='  Beware that a lot of characters are allowed
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/typo3/index.php typo3-src-4.2.5/typo3/index.php
+--- typo3-src-4.2.5~/typo3/index.php	2011-08-04 12:49:27.000000000 +0200
++++ typo3-src-4.2.5/typo3/index.php	2011-08-04 13:22:16.000000000 +0200
+@@ -353,7 +353,7 @@
+ 					-->
+ 					<table cellspacing="0" cellpadding="0" border="0" id="loginwrapper">
+ 						<tr>
+-							<td'.($this->commandLI ? ' class="error"' : '').'>'.$loginboxImage.
++							<td'.($this->isLoginInProgress() ? ' class="error"' : '').'>'.$loginboxImage.
+ 								$content.'
+ 							</td>
+ 						</tr>
+@@ -385,8 +385,8 @@
+ 		global $BE_USER,$TBE_TEMPLATE;
+ 
+ 			// Do redirect:
+-			// If a user is logged in AND a) if either the login is just done (commandLI) or b) a loginRefresh is done or c) the interface-selector is NOT enabled (If it is on the other hand, it should not just load an interface, because people has to choose then...)
+-		if ($BE_USER->user['uid'] && ($this->commandLI || $this->loginRefresh || !$this->interfaceSelector))	{
++			// If a user is logged in AND a) if either the login is just done (isLoginInProgress) or b) a loginRefresh is done or c) the interface-selector is NOT enabled (If it is on the other hand, it should not just load an interface, because people has to choose then...)
++		if ($BE_USER->user['uid'] && ($this->isLoginInProgress() || $this->loginRefresh || !$this->interfaceSelector))	{
+ 
+ 				// If no cookie has been set previously we tell people that this is a problem. This assumes that a cookie-setting script (like this one) has been hit at least once prior to this instance.
+  			if (!$_COOKIE[$BE_USER->name])	{
+@@ -435,8 +435,7 @@
+ 					}
+ 				');
+ 			}
+-
+-		} elseif (!$BE_USER->user['uid'] && $this->commandLI) {
++		} elseif (!$BE_USER->user['uid'] && $this->isLoginInProgress()) {
+ 			sleep(5);	// Wrong password, wait for 5 seconds
+ 		}
+ 	}
+@@ -455,7 +454,7 @@
+ 		$this->interfaceSelector_jump = '';
+ 
+ 			// If interfaces are defined AND no input redirect URL in GET vars:
+-		if ($TYPO3_CONF_VARS['BE']['interfaces'] && ($this->commandLI || !$this->redirect_url))	{
++		if ($TYPO3_CONF_VARS['BE']['interfaces'] && ($this->isLoginInProgress() || !$this->redirect_url))	{
+ 			$parts = t3lib_div::trimExplode(',',$TYPO3_CONF_VARS['BE']['interfaces']);
+ 			if (count($parts)>1)	{	// Only if more than one interface is defined will we show the selector:
+ 
+@@ -720,6 +719,15 @@
+ 		$challenge = md5(uniqid('').getmypid());
+ 		return $challenge;
+ 	}
++	/**
++	 * Checks if login credentials are currently submitted
++	 *
++	 * @return	boolean
++	 */
++	protected function isLoginInProgress() {
++		$username = t3lib_div::_GP('username');
++		return !(empty($username) && empty($this->commandLI));
++	}
+ }
+ 
+ // Include extension?
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/typo3/sysext/cms/tslib/class.tslib_content.php typo3-src-4.2.5/typo3/sysext/cms/tslib/class.tslib_content.php
+--- typo3-src-4.2.5~/typo3/sysext/cms/tslib/class.tslib_content.php	2011-08-04 12:49:27.000000000 +0200
++++ typo3-src-4.2.5/typo3/sysext/cms/tslib/class.tslib_content.php	2011-08-04 13:32:28.000000000 +0200
+@@ -5459,7 +5459,8 @@
+ 					$target = '';
+ 				}
+ 
+-				$onClick="vHWin=window.open('".$GLOBALS['TSFE']->baseUrlWrap($finalTagParts['url'])."','FEopenLink','".$JSwindowParams."');vHWin.focus();return false;";
++				$onClick="vHWin=window.open(" . t3lib_div::quoteJSvalue($GLOBALS['TSFE']->baseUrlWrap($finalTagParts['url'])) .
++					",'FEopenLink','" . $JSwindowParams . "');vHWin.focus();return false;";
+ 				$res = '<a href="'.htmlspecialchars($finalTagParts['url']).'"'. $target .' onclick="'.htmlspecialchars($onClick).'"'.($title?' title="'.$title.'"':'').($linkClass?' class="'.$linkClass.'"':'').$finalTagParts['aTagParams'].'>';
+ 			} else {
+ 				if ($GLOBALS['TSFE']->spamProtectEmailAddresses === 'ascii' && $finalTagParts['TYPE'] === 'mailto') {
+@@ -5757,7 +5758,7 @@
+ 				$content .= '&'.$k.'='.$v;
+ 			}
+ 		} else {
+-			$content = t3lib_div::implodeArrayForUrl('',$q_out);
++			$content = t3lib_div::implodeArrayForUrl('',$q_out,'', false, true);
+ 		}
+ 
+ 		return $content;
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/typo3/sysext/cms/tslib/class.tslib_fe.php typo3-src-4.2.5/typo3/sysext/cms/tslib/class.tslib_fe.php
+--- typo3-src-4.2.5~/typo3/sysext/cms/tslib/class.tslib_fe.php	2011-08-04 12:49:27.000000000 +0200
++++ typo3-src-4.2.5/typo3/sysext/cms/tslib/class.tslib_fe.php	2011-08-04 12:49:28.000000000 +0200
+@@ -2209,7 +2209,7 @@
+ 			$TCA = Array();
+ 			include (TYPO3_tables_script ? PATH_typo3conf.TYPO3_tables_script : PATH_t3lib.'stddb/tables.php');
+ 				// Extension additions
+-			if ($GLOBALS['TYPO3_LOADED_EXT']['_CACHEFILE'])	{
++			if ($GLOBALS['TYPO3_LOADED_EXT']['_CACHEFILE'] && file_exists(PATH_typo3conf . $GLOBALS['TYPO3_LOADED_EXT']['_CACHEFILE'] . '_ext_tables.php')) {
+ 				include(PATH_typo3conf.$GLOBALS['TYPO3_LOADED_EXT']['_CACHEFILE'].'_ext_tables.php');
+ 			} else {
+ 				include(PATH_t3lib.'stddb/load_ext_tables.php');
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/typo3/sysext/cms/tslib/showpic.php typo3-src-4.2.5/typo3/sysext/cms/tslib/showpic.php
+--- typo3-src-4.2.5~/typo3/sysext/cms/tslib/showpic.php	2011-08-04 12:48:28.000000000 +0200
++++ typo3-src-4.2.5/typo3/sysext/cms/tslib/showpic.php	2011-08-04 12:49:28.000000000 +0200
+@@ -163,7 +163,7 @@
+ 				$this->wrap.'|'.
+ 				$GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'].'|');
+ 
+-		if ($md5_value!=$this->md5) {
++		if ($md5_value !== $this->md5) {
+ 			die('Parameter Error: Wrong parameters sent.');
+ 		}
+ 
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/typo3/sysext/css_styled_content/static/setup.txt typo3-src-4.2.5/typo3/sysext/css_styled_content/static/setup.txt
+--- typo3-src-4.2.5~/typo3/sysext/css_styled_content/static/setup.txt	2011-08-04 12:48:28.000000000 +0200
++++ typo3-src-4.2.5/typo3/sysext/css_styled_content/static/setup.txt	2011-08-04 12:49:28.000000000 +0200
+@@ -175,20 +175,19 @@
+ 
+ 	10.1 = TEXT
+ 	10.1.current = 1
+-	10.1.insertData = 1
+-	10.1.fontTag = <h1{register:headerStyle}{register:headerClass}>|</h1>
++	10.1.dataWrap = <h1{register:headerStyle}{register:headerClass}>|</h1>
+ 
+ 	10.2 < .10.1
+-	10.2.fontTag = <h2{register:headerStyle}{register:headerClass}>|</h2>
++	10.2.dataWrap = <h2{register:headerStyle}{register:headerClass}>|</h2>
+ 
+ 	10.3 < .10.1
+-	10.3.fontTag = <h3{register:headerStyle}{register:headerClass}>|</h3>
++	10.3.dataWrap = <h3{register:headerStyle}{register:headerClass}>|</h3>
+ 
+ 	10.4 < .10.1
+-	10.4.fontTag = <h4{register:headerStyle}{register:headerClass}>|</h4>
++	10.4.dataWrap = <h4{register:headerStyle}{register:headerClass}>|</h4>
+ 
+ 	10.5 < .10.1
+-	10.5.fontTag = <h5{register:headerStyle}{register:headerClass}>|</h5>
++	10.5.dataWrap = <h5{register:headerStyle}{register:headerClass}>|</h5>
+ 
+ 	# Pops the used registers off the stack:
+ 	98 = RESTORE_REGISTER
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/typo3/sysext/felogin/flexform.xml typo3-src-4.2.5/typo3/sysext/felogin/flexform.xml
+--- typo3-src-4.2.5~/typo3/sysext/felogin/flexform.xml	2011-08-04 12:48:28.000000000 +0200
++++ typo3-src-4.2.5/typo3/sysext/felogin/flexform.xml	2011-08-04 12:49:28.000000000 +0200
+@@ -323,7 +323,7 @@
+ 							</config>
+ 						</TCEforms>
+ 					</forgot_header>
+-					<forgot_message>
++					<forgot_reset_message>
+ 						<TCEforms>
+ 							<label>LLL:EXT:felogin/locallang_db.xml:tt_content.pi_flexform.forgot_message</label>
+ 							<config>
+@@ -332,7 +332,7 @@
+ 								<rows>5</rows>
+ 							</config>
+ 						</TCEforms>
+-					</forgot_message>
++					</forgot_reset_message>
+ 				</el>
+ 			</ROOT>
+ 		</s_messages>
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/typo3/wizard_colorpicker.php typo3-src-4.2.5/typo3/wizard_colorpicker.php
+--- typo3-src-4.2.5~/typo3/wizard_colorpicker.php	2011-08-04 12:49:27.000000000 +0200
++++ typo3-src-4.2.5/typo3/wizard_colorpicker.php	2011-08-04 12:49:28.000000000 +0200
+@@ -449,7 +449,7 @@
+ 	protected function areFieldChangeFunctionsValid() {
+ 		return (
+ 			$this->fieldChangeFunc && $this->fieldChangeFuncHash
+-			&& $this->fieldChangeFuncHash == t3lib_div::hmac($this->fieldChangeFunc)
++			&& $this->fieldChangeFuncHash === t3lib_div::hmac($this->fieldChangeFunc)
+ 		);
+ 	}
+ }
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' typo3-src-4.2.5~/typo3/wizard_tsconfig.php typo3-src-4.2.5/typo3/wizard_tsconfig.php
+--- typo3-src-4.2.5~/typo3/wizard_tsconfig.php	2011-08-04 12:49:27.000000000 +0200
++++ typo3-src-4.2.5/typo3/wizard_tsconfig.php	2011-08-04 12:49:28.000000000 +0200
+@@ -649,7 +649,7 @@
+ 	protected function areFieldChangeFunctionsValid() {
+ 		return (
+ 			isset($this->P['fieldChangeFunc']) && is_array($this->P['fieldChangeFunc']) && isset($this->P['fieldChangeFuncHash'])
+-			&& $this->P['fieldChangeFuncHash'] == t3lib_div::hmac(serialize($this->P['fieldChangeFunc']))
++			&& $this->P['fieldChangeFuncHash'] === t3lib_div::hmac(serialize($this->P['fieldChangeFunc']))
+ 		);
+ 	}
+ }

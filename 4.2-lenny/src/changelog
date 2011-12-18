@@ -1,3 +1,21 @@
+typo3-src (4.2.5-1+lenny9) oldstable-security; urgency=high
+
+  [ Christian Welzel ]
+  * Security patch from new upstream release 4.3.14
+    - fixes: "TYPO3 Security Bulletin TYPO3-CORE-SA-2011-003: Improper error
+      handling could lead to cache flooding in TYPO3 Core" (Closes: 641683)
+
+ -- Christian Welzel <gawain@camlann.de>  Thu, 15 Sep 2011 15:30:56 +2000
+
+typo3-src (4.2.5-1+lenny8) oldstable-security; urgency=high
+
+  [ Christian Welzel ]
+  * Security patch from new upstream release 4.3.12
+    - fixes: "TYPO3 Security Bulletin TYPO3-CORE-SA-2011-001: Multiple
+      vulnerabilities in TYPO3 Core" (Closes: 635937)
+
+ -- Christian Welzel <gawain@camlann.de>  Fri, 05 Aug 2011 15:30:56 +0000
+
 typo3-src (4.2.5-1+lenny7) stable-security; urgency=high
 
   * Security patch from new upstream release 4.2.16:
